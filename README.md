@@ -22,6 +22,8 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 
 ![Player View](./2.png)
 
+![Thumbnail Entry View](./3.png)
+
 ### 目录结构
 
 | 路径 | 说明 |
@@ -157,6 +159,8 @@ This repository only contains the player source code and asset path conventions.
 ![Entry Page](./1.png)
 
 ![Player View](./2.png)
+
+![Thumbnail Entry View](./3.png)
 
 ### Project structure
 

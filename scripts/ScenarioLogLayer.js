@@ -66,11 +66,15 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
             if (prev.textCtrl === 'r' || prev.textCtrl === 'l') {
                 prev.text = `${prev.text || ''}\n${track.text || ''}`;
                 prev.textCtrl = track.textCtrl;
+                if (track.logTextFrame) prev.logTextFrame = track.logTextFrame;
+                if (track.voice) prev.voice = track.voice;
                 return;
             }
             if (prev.textCtrl === 'n') {
                 prev.text = `${prev.text || ''}${track.text || ''}`;
                 prev.textCtrl = track.textCtrl;
+                if (track.logTextFrame) prev.logTextFrame = track.logTextFrame;
+                if (track.voice) prev.voice = track.voice;
                 return;
             }
         }
@@ -80,7 +84,7 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
             text:          track.text,
             speakerIcon:   track.speakerIcon,
             logTextFrame:  track.logTextFrame,
-            voice:         track.voice || (PRODUCER_SPEAKERS.has(track.speaker) ? PRODUCER_BUBBLE_KEY : null),
+            voice:         track.voice,
             isSelectedItem: !!track.isSelectedItem,
             textCtrl:      track.textCtrl,
         });
