@@ -16,6 +16,12 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 - 支持在日志界面重放语音。
 - 支持为 `produce_events` 入口卡片配置可选缩略图。
 
+### 截图
+
+![Entry Page](./1.png)
+
+![Player View](./2.png)
+
 ### 目录结构
 
 | 路径 | 说明 |
@@ -145,6 +151,12 @@ This repository only contains the player source code and asset path conventions.
 - Shows a custom visual scenario entry page when no `eventId` is specified.
 - Supports voice replay from the scenario log screen.
 - Supports optional thumbnails for `produce_events` entry cards.
+
+### Screenshots
+
+![Entry Page](./1.png)
+
+![Player View](./2.png)
 
 ### Project structure
 
