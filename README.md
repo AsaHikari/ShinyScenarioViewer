@@ -133,6 +133,10 @@ python -m http.server 8000
 http://127.0.0.1:8000/
 ```
 
+### 剧情汉化与录制
+
+如果你使用本项目播放并录制剧情内容，用于剧情汉化、视频投稿或相关展示，请在简介、说明或字幕组信息中标明使用了本项目。
+
 ### Special thanks
 
 - yesterday17：没有他就不会有这个项目。
@@ -270,6 +274,10 @@ Then open:
 ```text
 http://127.0.0.1:8000/
 ```
+
+### Scenario translation and recording
+
+If you use this project to play and record scenarios for translation, video uploads, or related presentations, please mention that this project was used in the description, credits, or translation notes.
 
 ### Special thanks
 
