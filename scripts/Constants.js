@@ -82,7 +82,7 @@ const ASSET_FORMAT = {
 // logTextFrame uses downloads/images/event/log_text_frame/{id}.png (744×82)
 const CHARACTER_ASSET_FORMAT = {
     spine:        `${ASSET_PATH}/spine/\${type}/\${category}/\${id}/data.json`,
-    still:        `${ASSET_PATH}/images/event/still/\${id}.jpg`,
+    still:        `${ASSET_PATH}/images/content/\${type}/card/\${id}.jpg`,
     speakerIcon:  `${DOWNLOADS_PATH}/images/content/\${type}/icon_circle_l/\${id}.png`,
     logTextFrame: `${DOWNLOADS_PATH}/images/event/log_text_frame/\${id}.png`,
 };
