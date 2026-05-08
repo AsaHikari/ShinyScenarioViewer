@@ -66,6 +66,19 @@ class SoundController {
         if (this._currentBgm) { try { this._currentBgm.stop(); } catch(_){}; this._currentBgm = null; this._currentBgmUrl = null; }
     }
 
+    fadeOutAll(duration = 1200) {
+        this._fadeStop(this._currentSe, duration, () => { this._currentSe = null; });
+        this._fadeStop(this._currentVoice, duration, () => {
+            this._currentVoice = null;
+            this._currentVoiceRes = null;
+        });
+        this._fadeStop(this._currentLogVoice, duration, () => { this._currentLogVoice = null; });
+        this._fadeStop(this._currentBgm, duration, () => {
+            this._currentBgm = null;
+            this._currentBgmUrl = null;
+        });
+    }
+
     destroy() { this.removeAll(); }
 
     // Play any preloaded sound by URL or key (used by MainController for UI taps).
@@ -157,5 +170,27 @@ class SoundController {
             }
             return inst;
         } catch(_) { return null; }
+    }
+
+    _fadeStop(inst, duration, clear) {
+        if (!inst) {
+            clear();
+            return;
+        }
+        const finish = () => {
+            try { inst.stop(); } catch(_) {}
+            clear();
+        };
+        try {
+            if (typeof gsap !== 'undefined') {
+                gsap.to(inst, { volume: 0, duration: duration / 1000, onComplete: finish });
+            } else if (typeof TweenMax !== 'undefined') {
+                TweenMax.to(inst, duration / 1000, { volume: 0, onComplete: finish });
+            } else {
+                finish();
+            }
+        } catch (_) {
+            finish();
+        }
     }
 }

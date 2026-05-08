@@ -109,6 +109,15 @@ async function startScenarioPlayer(eventType, eventId) {
     if (!loader.resources[SELECT_ANSWER_SE_KEY]) {
         loader.add(SELECT_ANSWER_SE_KEY, SELECT_ANSWER_SE_URL);
     }
+    if (!loader.resources[TAP_EFFECT_PARTICLES_KEY]) {
+        loader.add(TAP_EFFECT_PARTICLES_KEY, TAP_EFFECT_PARTICLES_URL);
+    }
+    if (!loader.resources[TAP_EFFECT_PARTICLE_CONFIG_KEY]) {
+        loader.add(TAP_EFFECT_PARTICLE_CONFIG_KEY, TAP_EFFECT_PARTICLE_CONFIG_URL);
+    }
+    if (!loader.resources[TAP_EFFECT_FEATHER_CONFIG_KEY]) {
+        loader.add(TAP_EFFECT_FEATHER_CONFIG_KEY, TAP_EFFECT_FEATHER_CONFIG_URL);
+    }
 
     // Producer bubble (looping beep for producer dialogue)
     if (!loader.resources[PRODUCER_BUBBLE_KEY]) {
@@ -117,10 +126,16 @@ async function startScenarioPlayer(eventType, eventId) {
 
     // Select-frame textures (1..max-selects)
     let maxSelects = 0;
+    let currentSelects = 0;
     tracks.forEach(t => {
-        if (Array.isArray(t.select)) maxSelects = Math.max(maxSelects, t.select.length);
+        if (t.select) {
+            currentSelects += Array.isArray(t.select) ? t.select.length : 1;
+            maxSelects = Math.max(maxSelects, currentSelects);
+        } else {
+            currentSelects = 0;
+        }
     });
-    for (let i = 1; i <= maxSelects; i++) {
+    for (let i = 1; i <= Math.min(maxSelects, 5); i++) {
         const key = `selectFrame${i}`;
         if (!loader.resources[key]) loader.add(key, SELECT_FRAME_URL(i));
     }
@@ -143,7 +158,10 @@ async function startScenarioPlayer(eventType, eventId) {
         const advPlayer = new AdvPlayer(app);
         app.stage.addChild(advPlayer.stageObj);
 
-        advPlayer.once('end', () => console.log('[main] scenario ended'));
+        advPlayer.once('end', () => {
+            console.log('[main] scenario ended');
+            showEndOverlay(app, advPlayer);
+        });
 
         // Drive update loop
         app.ticker.add((delta) => advPlayer.update(delta));
@@ -438,6 +456,61 @@ function buildTouchOverlay(app) {
     label.anchor.set(0.5);
     label.position.set(568, 320);
     overlay.addChild(label);
+    return overlay;
+}
+
+function showEndOverlay(app, advPlayer) {
+    const overlay = buildEndOverlay(app);
+    app.stage.addChild(overlay);
+    if (advPlayer.soundController && typeof advPlayer.soundController.fadeOutAll === 'function') {
+        advPlayer.soundController.fadeOutAll(1200);
+    }
+    const revealText = () => {
+        if (typeof TweenMax !== 'undefined') TweenMax.to(overlay.content, 0.35, { alpha: 1 });
+        else overlay.content.alpha = 1;
+    };
+    if (typeof TweenMax !== 'undefined') {
+        TweenMax.to(advPlayer.stageObj, 1.2, { alpha: 0 });
+        TweenMax.to(overlay.bg, 1.2, { alpha: 1, onComplete: revealText });
+    } else {
+        advPlayer.stageObj.alpha = 0;
+        overlay.bg.alpha = 1;
+        revealText();
+    }
+}
+
+function buildEndOverlay(app) {
+    const overlay = new PIXI.Container();
+    overlay.interactive = true;
+    overlay.hitArea = new PIXI.Rectangle(0, 0, 1136, 640);
+
+    const bg = new PIXI.Graphics();
+    bg.beginFill(0x000000, 1);
+    bg.drawRect(0, 0, 1136, 640);
+    bg.endFill();
+    bg.alpha = 0;
+    overlay.addChild(bg);
+    overlay.bg = bg;
+
+    const content = new PIXI.Container();
+    content.alpha = 0;
+    overlay.addChild(content);
+    overlay.content = content;
+
+    const title = new PIXI.Text('End', {
+        fontFamily: USED_FONT, fontSize: 52, fill: 0xffffff, align: 'center',
+    });
+    title.anchor.set(0.5);
+    title.position.set(568, 290);
+    content.addChild(title);
+
+    const label = new PIXI.Text('Scenario Finished', {
+        fontFamily: USED_FONT, fontSize: 24, fill: 0xd9f2ff, align: 'center',
+    });
+    label.anchor.set(0.5);
+    label.position.set(568, 348);
+    content.addChild(label);
+
     return overlay;
 }
 

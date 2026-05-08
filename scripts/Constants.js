@@ -108,6 +108,12 @@ const UI_CANCEL_SE_URL = `${ASSET_PATH}/sounds/se/004.m4a`;
 const UI_CANCEL_SE_KEY = 'uiCancelSe';
 const SELECT_ANSWER_SE_URL = `${ASSET_PATH}/sounds/se/227.m4a`;
 const SELECT_ANSWER_SE_KEY = 'selectAnswerSe';
+const TAP_EFFECT_PARTICLES_KEY = 'tapEffectParticles';
+const TAP_EFFECT_PARTICLES_URL = `${ASSET_PATH}/particles/common/tap_effect/images.json`;
+const TAP_EFFECT_PARTICLE_CONFIG_KEY = 'tapEffectParticleConfig';
+const TAP_EFFECT_PARTICLE_CONFIG_URL = `${ASSET_PATH}/particles/common/tap_effect/particle.json`;
+const TAP_EFFECT_FEATHER_CONFIG_KEY = 'tapEffectFeatherConfig';
+const TAP_EFFECT_FEATHER_CONFIG_URL = `${ASSET_PATH}/particles/common/tap_effect/feather.json`;
 
 // Producer bubble (looping voice for producer dialogue).
 const PRODUCER_BUBBLE_KEY = 'voiceProducerDefault';

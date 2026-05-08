@@ -19,6 +19,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._selectList     = new SelectList(this._soundController);
         this._mainController = new MainController(this._soundController);
         this._scenarioLogLayer = new ScenarioLogLayer();
+        this._tapEffectLayer = new TapEffectLayer();
 
         this._schedule       = new Schedule();
         this._trackManager   = null;
@@ -41,19 +42,22 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._interactionLayer = new PIXI.Container();
         this._interactionLayer.interactive = true;
         this._interactionLayer.hitArea = new PIXI.Rectangle(0, 0, 1136, 640);
-        this._interactionLayer.on('pointertap', () => this._onTap());
+        this._interactionLayer.on('pointertap', (e) => {
+            const p = e && e.data ? e.data.global : null;
+            if (p) this._tapEffectLayer.play(p.x, p.y);
+            this._onTap();
+        });
 
-        // Z-order (matches the order enza's me[] uses)
+        // Z-order matches enza: interaction layer is below selectable/content layers.
         const layers = [
+            { stageObj: this._interactionLayer },
             this._bgLayer, this._middleFgLayer, this._characterStage,
             this._fgLayer, this._stillLayer,
             this._selectList, this._scenarioPlayer, this._effectLayer,
         ];
         layers.forEach(l => this._container.addChild(l.stageObj));
-        // Interaction sits ABOVE content but BELOW UI (so empty-space taps
-        // advance text, button taps land on UI buttons above)
-        this._container.addChild(this._interactionLayer);
         this._container.addChild(this._mainController.stageObj);
+        this._container.addChild(this._tapEffectLayer.stageObj);
         this._container.addChild(this._movieLayer.stageObj);
         this._container.addChild(this._scenarioLogLayer.stageObj);
 
@@ -92,6 +96,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         if (this._paused) return;
         this._schedule.update(delta);
         this._scenarioPlayer.update(delta);
+        this._tapEffectLayer.update(delta);
     }
 
     pause()  { this._paused = true; }
@@ -308,10 +313,12 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this.emit('appearSelectList');
         this._changeToLocked();
     }
-    _addSelectItem(items, fallbackNextLabel) {
-        items.forEach((it, i) => {
-            this._selectList.addItem(it.text || it, it.nextLabel || fallbackNextLabel);
-        });
+    _addSelectItem(item, fallbackNextLabel) {
+        const text = (item && typeof item === 'object') ? item.text : item;
+        const nextLabel = (item && typeof item === 'object' && item.nextLabel !== undefined)
+            ? item.nextLabel
+            : fallbackNextLabel;
+        this._selectList.addItem(text, nextLabel);
         // If next track itself is also a select, the original delays appear()
         const nt = this._trackManager.nextTrack;
         if (!nt || !nt.select) this._selectList.appear();
@@ -479,7 +486,25 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
     }
 
     _controlMovie(url, seUrl) {
-        if (seUrl) this._soundController.control('se', seUrl);
-        this._movieLayer.control(url).then(() => this._handleWaitEnd());
+        const mainStage = this._mainController.stageObj;
+        const prevMainVisible = mainStage.visible;
+        const prevMainInteractiveChildren = mainStage.interactiveChildren;
+        const prevInteractionInteractive = this._interactionLayer.interactive;
+
+        this._soundController.removeSe();
+        mainStage.visible = false;
+        mainStage.interactiveChildren = false;
+        this._interactionLayer.interactive = false;
+
+        this._movieLayer.control(url, {
+            seUrl,
+            soundController: this._soundController,
+        }).then(() => {
+            mainStage.visible = prevMainVisible;
+            mainStage.interactiveChildren = prevMainInteractiveChildren;
+            this._interactionLayer.interactive = prevInteractionInteractive;
+            this._handleWaitEnd();
+            setTimeout(() => this._movieLayer.reset(), 0);
+        });
     }
 }
