@@ -7,6 +7,8 @@ class CharacterStage {
         this._loader     = PIXI.Loader.shared;
         this._spineMap   = new Map();   // uid → PIXI.spine.Spine
         this._currSpine  = {};          // label → { currCharId, currCharCategory }
+        this._activeEffects = new Set();
+        this._lipAnim = null;
 
         this.LOOP_EVENT_NAME  = 'loop_start';
         this.RELAY_EVENT_NAME = 'relay';
@@ -33,7 +35,7 @@ class CharacterStage {
             charId, charType, charCategory,
             anim1, anim2, anim3, anim4, anim5,
             anim1Loop, anim2Loop, anim3Loop, anim4Loop, anim5Loop,
-            lipAnim, lipAnimDuration, voiceObj, effect, effectSpeed = 1,
+            lipAnim, lipAnimDuration, lipMarks, voiceObj, effect, effectSpeed = 1,
         } = p;
 
         if (!label) return Promise.resolve();
@@ -152,6 +154,19 @@ class CharacterStage {
         this._container.removeChildren();
         this._spineMap.clear();
         this._currSpine = {};
+        this._activeEffects.clear();
+    }
+
+    endEffects() {
+        Array.from(this._activeEffects).forEach(record => {
+            record.tweens.forEach(tween => {
+                try {
+                    if (tween && typeof tween.progress === 'function') tween.progress(1);
+                    else if (tween && typeof tween.seek === 'function') tween.seek(tween.duration());
+                } catch (_) {}
+            });
+            record.finish();
+        });
     }
 
     // ─── Private helpers ───────────────────────────────────────────────────
@@ -182,11 +197,6 @@ class CharacterStage {
 
     _setAnim(animName, loop, trackNo, spine) {
         if (!animName) return null;
-        // "blank" is enza's signal to gracefully clear the track
-        if (animName === 'blank') {
-            spine.state.addEmptyAnimation(trackNo, this.ANIMATION_MIX, 0);
-            return null;
-        }
         const animation = spine.spineData.animations.find(a => a.name === animName);
         if (!animation) {
             console.warn(`[CharacterStage] animation "${animName}" not found`);
@@ -199,6 +209,7 @@ class CharacterStage {
         if (eventTimeline) {
             eventTimeline.events.forEach(ev => {
                 if (ev.data.name === this.LOOP_EVENT_NAME) loopStartTime = ev.time;
+                if (ev.data.name === this.LIP_EVENT_NAME) this._lipAnim = ev.stringValue;
             });
         }
         if (loopStartTime) loop = false;
@@ -207,31 +218,28 @@ class CharacterStage {
         let relayAnim = null;
         const before = spine.state.getCurrent(trackNo);
         const beforeAnim = before?.animation?.name ?? null;
-        const beforeTime = before?.trackTime ?? 0;
+        const beforeAnimation = beforeAnim
+            ? spine.spineData.animations.find(a => a.name === beforeAnim)
+            : null;
 
-        if (beforeAnim) {
-            const beforeAnimation = spine.spineData.animations.find(a => a.name === beforeAnim);
+        if (beforeAnimation) {
             const beforeEventTl = beforeAnimation?.timelines?.find(tl => tl.events);
             if (beforeEventTl) {
                 const relayEv = beforeEventTl.events.find(ev => ev.data.name === this.RELAY_EVENT_NAME);
                 if (relayEv) relayAnim = relayEv.stringValue;
             }
-            spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
         }
 
-        const trackEntry = spine.state.setAnimation(trackNo, animName, loop);
-
-        // Handle relay animation on a high-numbered temporary track
-        const relayTrackNo = 10 + trackNo;
-        if (relayAnim && beforeAnim && spine.spineData.animations.find(a => a.name === relayAnim)) {
-            const shadow = spine.state.setAnimation(relayTrackNo, beforeAnim, false);
-            shadow.trackTime = beforeTime;
-            shadow.nextTrackLast = 0;
-            spine.stateData.setMix(beforeAnim, relayAnim, this.ANIMATION_MIX);
-            spine.state.setAnimation(relayTrackNo, relayAnim, false);
-            spine.state.addEmptyAnimation(relayTrackNo, this.ANIMATION_MIX, 0);
+        let trackEntry;
+        const hasRelay = relayAnim && spine.spineData.animations.find(a => a.name === relayAnim);
+        if (hasRelay) {
+            if (beforeAnimation) spine.stateData.setMix(beforeAnim, relayAnim, this.ANIMATION_MIX);
+            spine.stateData.setMix(relayAnim, animName, this.ANIMATION_MIX);
+            spine.state.setAnimation(trackNo, relayAnim, false);
+            trackEntry = spine.state.addAnimation(trackNo, animName, loop, 0);
         } else {
-            if (spine.state.getCurrent(relayTrackNo)) spine.state.clearTrack(relayTrackNo);
+            if (beforeAnimation) spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
+            trackEntry = spine.state.setAnimation(trackNo, animName, loop);
         }
 
         // Partial-loop listener
@@ -242,7 +250,7 @@ class CharacterStage {
                     if (cur?.animation?.name !== animName) return;
                     const entry = spine.state.setAnimation(trackNo, animName, false);
                     entry.listener = listener;
-                    entry.time = loopStartTime;
+                    entry.trackTime = loopStartTime;
                 },
             };
             trackEntry.listener = listener;
@@ -253,31 +261,76 @@ class CharacterStage {
 
     _applyEffect(spine, effect, effectSpeed) {
         const duration = (effect.time ?? 1000) / 1000 / effectSpeed;
-        const props = {};
+        const tweener = (typeof gsap !== 'undefined') ? gsap
+                      : (typeof TweenMax !== 'undefined') ? TweenMax
+                      : null;
+        if (!tweener) {
+            console.error('[CharacterStage] no tween library available for charEffect', effect);
+            return Promise.resolve();
+        }
 
         return new Promise(resolve => {
+            const record = {
+                tweens: [],
+                done: false,
+                finish: () => {
+                    if (record.done) return;
+                    record.done = true;
+                    this._activeEffects.delete(record);
+                    resolve();
+                },
+            };
+            this._activeEffects.add(record);
+            const trackTween = tween => {
+                if (tween) record.tweens.push(tween);
+                return tween;
+            };
             if (effect.alpha !== undefined) {
-                const alphaProps = { alpha: effect.alpha, duration, onComplete: resolve };
                 if (!effect.x && !effect.y && !effect.scale) {
                     if (effect.type === 'from') {
-                        TweenMax.from(spine.alphaFilter, duration, { alpha: effect.alpha, onComplete: resolve });
+                        trackTween(this._startTween(tweener, spine.alphaFilter, 'from', duration, {
+                            alpha: effect.alpha,
+                            onComplete: record.finish,
+                        }));
                     } else {
-                        TweenMax.to(spine.alphaFilter, duration, { alpha: effect.alpha, onComplete: resolve });
+                        trackTween(this._startTween(tweener, spine.alphaFilter, 'to', duration, {
+                            alpha: effect.alpha,
+                            onComplete: record.finish,
+                        }));
                     }
                     return;
                 }
                 // Mixed: alpha separately, transform separately
-                TweenMax.to(spine.alphaFilter, duration, { alpha: effect.alpha });
+                trackTween(this._startTween(tweener, spine.alphaFilter, 'to', duration, { alpha: effect.alpha }));
                 const transformEffect = { ...effect };
                 delete transformEffect.alpha;
-                TweenMax.to(spine, duration, { ...transformEffect, duration, onComplete: resolve });
+                trackTween(this._startTween(tweener, spine, 'to', duration, {
+                    ...transformEffect,
+                    onComplete: record.finish,
+                }));
             } else {
                 if (effect.type === 'from') {
-                    TweenMax.from(spine, duration, { ...effect, onComplete: resolve });
+                    trackTween(this._startTween(tweener, spine, 'from', duration, {
+                        ...effect,
+                        onComplete: record.finish,
+                    }));
                 } else {
-                    TweenMax.to(spine, duration, { ...effect, onComplete: resolve });
+                    trackTween(this._startTween(tweener, spine, 'to', duration, {
+                        ...effect,
+                        onComplete: record.finish,
+                    }));
                 }
             }
         });
+    }
+
+    _startTween(tweener, target, type, duration, props) {
+        const cleanProps = { ...props };
+        delete cleanProps.type;
+        delete cleanProps.time;
+        if (typeof gsap !== 'undefined' && tweener === gsap) {
+            return tweener[type](target, { ...cleanProps, duration });
+        }
+        return tweener[type](target, duration, cleanProps);
     }
 }
