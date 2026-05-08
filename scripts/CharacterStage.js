@@ -150,13 +150,6 @@ class CharacterStage {
         this.stopLipAnimations();
     }
 
-    reset() {
-        this._container.removeChildren();
-        this._spineMap.clear();
-        this._currSpine = {};
-        this._activeEffects.clear();
-    }
-
     endEffects() {
         Array.from(this._activeEffects).forEach(record => {
             record.tweens.forEach(tween => {
@@ -167,6 +160,13 @@ class CharacterStage {
             });
             record.finish();
         });
+    }
+
+    reset() {
+        this._container.removeChildren();
+        this._spineMap.clear();
+        this._currSpine = {};
+        this._activeEffects.clear();
     }
 
     // ─── Private helpers ───────────────────────────────────────────────────
@@ -197,6 +197,11 @@ class CharacterStage {
 
     _setAnim(animName, loop, trackNo, spine) {
         if (!animName) return null;
+        if (animName === 'blank') {
+            spine.state.addEmptyAnimation(trackNo, this.ANIMATION_MIX, 0);
+            return null;
+        }
+
         const animation = spine.spineData.animations.find(a => a.name === animName);
         if (!animation) {
             console.warn(`[CharacterStage] animation "${animName}" not found`);
@@ -218,6 +223,7 @@ class CharacterStage {
         let relayAnim = null;
         const before = spine.state.getCurrent(trackNo);
         const beforeAnim = before?.animation?.name ?? null;
+        const beforeTime = before?.trackTime ?? 0;
         const beforeAnimation = beforeAnim
             ? spine.spineData.animations.find(a => a.name === beforeAnim)
             : null;
@@ -230,16 +236,20 @@ class CharacterStage {
             }
         }
 
-        let trackEntry;
         const hasRelay = relayAnim && spine.spineData.animations.find(a => a.name === relayAnim);
+        if (beforeAnimation) spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
+        const trackEntry = spine.state.setAnimation(trackNo, animName, loop);
+
+        const relayTrackNo = 10 + trackNo;
         if (hasRelay) {
             if (beforeAnimation) spine.stateData.setMix(beforeAnim, relayAnim, this.ANIMATION_MIX);
-            spine.stateData.setMix(relayAnim, animName, this.ANIMATION_MIX);
-            spine.state.setAnimation(trackNo, relayAnim, false);
-            trackEntry = spine.state.addAnimation(trackNo, animName, loop, 0);
+            const shadow = spine.state.setAnimation(relayTrackNo, beforeAnim, false);
+            shadow.trackTime = beforeTime;
+            shadow.nextTrackLast = 0;
+            spine.state.setAnimation(relayTrackNo, relayAnim, false);
+            spine.state.addEmptyAnimation(relayTrackNo, this.ANIMATION_MIX, 0);
         } else {
-            if (beforeAnimation) spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
-            trackEntry = spine.state.setAnimation(trackNo, animName, loop);
+            if (spine.state.getCurrent(relayTrackNo)) spine.state.clearTrack(relayTrackNo);
         }
 
         // Partial-loop listener

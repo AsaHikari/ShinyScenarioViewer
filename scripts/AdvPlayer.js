@@ -30,9 +30,16 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._textSpeed      = 100;
         this._waitTime       = 200;
         this._autoWaitTime   = 0;
+        this._isFast4Mode    = false;
+        this._skipReserved   = false;
+        this._currentSkipActionType = 'no_wait';
         this._currentVoice   = null;
         this._currentVoiceKeepActive = false;
         this._currentVoiceEndHandler = null;
+        this._deferredTasks  = [];
+        this._fatalError     = null;
+        this._isMoviePlaying = false;
+        this._instantStillAfterMovie = false;
 
         this._container = new PIXI.Container();
 
@@ -42,11 +49,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._interactionLayer = new PIXI.Container();
         this._interactionLayer.interactive = true;
         this._interactionLayer.hitArea = new PIXI.Rectangle(0, 0, 1136, 640);
-        this._interactionLayer.on('pointertap', (e) => {
-            const p = e && e.data ? e.data.global : null;
-            if (p) this._tapEffectLayer.play(p.x, p.y);
-            this._onTap();
-        });
+        this._interactionLayer.on('pointertap', () => this._onTap());
 
         // Z-order matches enza: interaction layer is below selectable/content layers.
         const layers = [
@@ -57,9 +60,9 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         ];
         layers.forEach(l => this._container.addChild(l.stageObj));
         this._container.addChild(this._mainController.stageObj);
-        this._container.addChild(this._tapEffectLayer.stageObj);
         this._container.addChild(this._movieLayer.stageObj);
         this._container.addChild(this._scenarioLogLayer.stageObj);
+        this._container.addChild(this._tapEffectLayer.stageObj);
 
         // Wire ScenarioPlayer events (per enza _setupScenarioPlayer)
         this._scenarioPlayer.on('play',    this._onPlayText, this);
@@ -75,6 +78,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         // Wire SelectList
         this._selectList.on('appear', () => this._onAppearSelectList());
         this._selectList.on('select', (e) => this._onSelect(e));
+        this._bindGlobalTapEffect();
     }
 
     get stageObj()         { return this._container; }
@@ -93,14 +97,33 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
     }
 
     update(delta) {
-        if (this._paused) return;
-        this._schedule.update(delta);
-        this._scenarioPlayer.update(delta);
-        this._tapEffectLayer.update(delta);
+        if (this._fatalError) return;
+        try {
+            this._tapEffectLayer.update(delta);
+            if (this._paused) return;
+            this._schedule.update(delta);
+            this._runDeferredTasks();
+            this._scenarioPlayer.update(delta);
+        } catch (err) {
+            this._handleFatalError('[AdvPlayer] update failed', err);
+        }
     }
 
     pause()  { this._paused = true; }
     resume() { this._paused = false; }
+
+    _bindGlobalTapEffect() {
+        const view = this._app && this._app.view;
+        if (!view) return;
+        view.addEventListener('pointerdown', (e) => {
+            if (this._isMoviePlaying) return;
+            const rect = view.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (1136 / rect.width);
+            const y = (e.clientY - rect.top) * (640 / rect.height);
+            if (x < 0 || x > 1136 || y < 0 || y > 640) return;
+            this._tapEffectLayer.play(x, y);
+        });
+    }
 
     // ───────────────────────────────────────────────────────────────────
     // State helpers
@@ -120,6 +143,10 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._state = State.WAITING;
         if (this._mode !== SpeedMode.AUTO) return;
         if (this._autoWaitTime > 0) return;
+        if (this._isFast4Mode) {
+            this._registerScheduleForward();
+            return;
+        }
 
         const v = this._currentVoice;
         // Producer bubble loops forever — don't wait for it; just auto-advance.
@@ -190,6 +217,42 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._schedule.register(() => this._forward(), this._waitTime + extra);
     }
 
+    _addDeferredTask(fn) {
+        if (typeof fn === 'function') this._deferredTasks.push(fn);
+    }
+
+    _runDeferredTasks() {
+        const tasks = this._deferredTasks;
+        if (tasks.length === 0) return;
+        this._deferredTasks = [];
+        tasks.forEach(fn => {
+            try { fn(); }
+            catch (err) {
+                this._handleFatalError('[AdvPlayer] deferred task failed', err);
+            }
+        });
+    }
+
+    _handleFatalError(message, err, context = {}) {
+        if (this._fatalError) return;
+        this._fatalError = { message, err, context };
+        console.error(message, context, err);
+        const box = new PIXI.Container();
+        const bg = new PIXI.Graphics();
+        bg.beginFill(0x000000, 0.82);
+        bg.drawRoundedRect(40, 40, 1056, 220, 16);
+        bg.endFill();
+        box.addChild(bg);
+        const detail = err && (err.stack || err.message || String(err));
+        const text = new PIXI.Text(
+            `${message}\n${detail || ''}\n${JSON.stringify(context, null, 2)}`,
+            { fontFamily: 'monospace', fontSize: 18, fill: 0xffdddd, wordWrap: true, wordWrapWidth: 1010 }
+        );
+        text.position.set(64, 62);
+        box.addChild(text);
+        this._container.addChild(box);
+    }
+
     // ───────────────────────────────────────────────────────────────────
     // Tap / forward / control
     // ───────────────────────────────────────────────────────────────────
@@ -241,7 +304,15 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
 
         const next = this._trackManager.forward();
         if (next) {
-            this._playTrack(next);
+            try {
+                this._playTrack(next);
+            } catch (err) {
+                this._handleFatalError('[AdvPlayer] _playTrack failed', err, {
+                    current: cur && cur.id,
+                    next: next && next.id,
+                    nextTrack: next,
+                });
+            }
         } else {
             this._changeToLocked();
             this.emit('end');
@@ -280,12 +351,24 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         }
         this._setMode(e.mode);
         this._effectSpeed = e.effectSpeed || 1;
+        this._isFast4Mode = !!e.soundDisabled && this._effectSpeed >= 8;
         this._bgLayer.speed = this._effectSpeed;
         this._scenarioPlayer.speed = e.speed;
         this._waitTime = e.waitTime;
         // FAST mode disables voice/SE per enza soundDisabled flag.
         if (this._soundController.setSoundDisabled) {
             this._soundController.setSoundDisabled(!!e.soundDisabled);
+            if (e.soundDisabled) {
+                this._detachCurrentVoiceEndHandler();
+                this._detachVoiceEndListener();
+                this._currentVoice = null;
+                this._currentVoiceIsLooping = false;
+                this._currentVoiceKeepActive = false;
+                this._scenarioPlayer.controlVoicePlayingAnimation(null);
+            }
+        }
+        if (this._isFast4Mode) {
+            this._forceEndSkippableTrack();
         }
     }
 
@@ -337,6 +420,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
     _playTrack(e) {
         if (!e) return;
         this._changeToFree();
+        this._skipReserved = false;
 
         const {
             speaker, text, textCtrl, textWait, textFrame,
@@ -357,6 +441,11 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
 
         const Q = [];
         let lipDuration;
+        const skipActionType = (text || movie || gameEventCommunicationMovie) ? 'unskippable'
+            : waitType === WaitType.TIME ? 'time'
+            : waitType === WaitType.EFFECT ? 'effect'
+            : 'no_wait';
+        this._currentSkipActionType = skipActionType;
 
         // Apply previously-stored textCtrl (clear / addLine / noop) BEFORE new text
         this._scenarioPlayer.applyTextControl();
@@ -402,9 +491,12 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         if (fg !== undefined)       Q.push(this._fgLayer.control(fg, fgEffect, fgEffectTime, this._effectSpeed));
 
         // Stills
-        if (charStill !== undefined) this._stillLayer.control(charStill);
-        if (still     !== undefined) this._stillLayer.control(still);
+        const instantStillPending = this._instantStillAfterMovie;
+        const instantStill = instantStillPending && (charStill !== undefined || still !== undefined);
+        if (charStill !== undefined) this._stillLayer.control(charStill, { instant: instantStill });
+        if (still     !== undefined) this._stillLayer.control(still, { instant: instantStill });
         if (stillCtrl !== undefined) this._stillLayer.control(stillCtrl);
+        if (instantStillPending) this._instantStillAfterMovie = false;
 
         // BGM / SE
         if (bgm) this._soundController.control('bgm', bgm, bgmFadeTime);
@@ -436,31 +528,31 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         if (movie)                       { this._changeToLocked(); this._controlMovie(movie, se); }
         if (gameEventCommunicationMovie) { this._changeToLocked(); this._controlMovie(gameEventCommunicationMovie, gameEventCommunicationSe); }
 
-        // autoWaitTime — only effective in AUTO mode (matches enza)
-        this._autoWaitTime = (autoWaitTime > 0 && this._mode === SpeedMode.AUTO) ? autoWaitTime : 0;
+        // autoWaitTime — enza disables it in FAST4 / instant-skip mode.
+        const effectiveAutoWaitTime = this._isFast4Mode ? 0 : autoWaitTime;
+        this._autoWaitTime = (effectiveAutoWaitTime > 0 && this._mode === SpeedMode.AUTO)
+            ? effectiveAutoWaitTime : 0;
         if (this._autoWaitTime > 0) {
             this._changeToLocked();
             this._registerScheduleForward(this._autoWaitTime);
         }
 
-        // waitType — in FAST mode (effectSpeed≥8) time-based waits are skipped (0ms);
-        // effect-based waits still wait for the actual tween Promise to resolve
-        // (but tweens run 8× faster), matching enza's effectSpeed scaling behaviour.
+        // waitType — enza registers time waits as waitTime/effectSpeed, then FAST4
+        // completes skippable time waits on the next frame via schedule.completeAll().
         if (waitType) {
             this._changeToLocked();
             if (waitType === WaitType.TIME) {
-                const delay = this._effectSpeed >= 8 ? 0
-                    : (waitTime || 0) / this._effectSpeed;
+                const delay = (waitTime || 0) / this._effectSpeed;
                 this._schedule.register(() => this._handleWaitEnd(), delay);
             } else if (waitType === WaitType.EFFECT) {
                 Promise.all(Q).then(() => {
-                    // 1-frame defer (matches enza FrameTween.wait(1))
-                    setTimeout(() => this._handleWaitEnd(), 16);
+                    // Enza defers wait completion through FrameTween/update, not a browser timer.
+                    this._addDeferredTask(() => this._handleWaitEnd());
                 });
             }
         }
 
-        if (this._effectSpeed >= 8 && !text && !movie && !gameEventCommunicationMovie) {
+        if (this._isFast4Mode && skipActionType !== 'unskippable') {
             this._forceEndSkippableTrack();
         }
 
@@ -473,16 +565,24 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
     }
 
     _handleWaitEnd() {
-        this._changeToFree();
-        this._forward();
+        this._addDeferredTask(() => {
+            this._changeToFree();
+            this._forward();
+        });
     }
 
     _forceEndSkippableTrack() {
+        if (this._currentSkipActionType === 'unskippable') return;
+        if (this._skipReserved) return;
+        this._skipReserved = true;
         [this._bgLayer, this._middleFgLayer, this._fgLayer, this._effectLayer, this._characterStage]
             .forEach(layer => {
                 if (layer && typeof layer.endEffect === 'function') layer.endEffect();
                 else if (layer && typeof layer.endEffects === 'function') layer.endEffects();
             });
+        if (this._currentSkipActionType === 'time') {
+            this._addDeferredTask(() => this._schedule.completeAll());
+        }
     }
 
     _controlMovie(url, seUrl) {
@@ -491,6 +591,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         const prevMainInteractiveChildren = mainStage.interactiveChildren;
         const prevInteractionInteractive = this._interactionLayer.interactive;
 
+        this._isMoviePlaying = true;
         this._soundController.removeSe();
         mainStage.visible = false;
         mainStage.interactiveChildren = false;
@@ -503,8 +604,12 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
             mainStage.visible = prevMainVisible;
             mainStage.interactiveChildren = prevMainInteractiveChildren;
             this._interactionLayer.interactive = prevInteractionInteractive;
+            this._instantStillAfterMovie = true;
             this._handleWaitEnd();
-            setTimeout(() => this._movieLayer.reset(), 0);
+            this._addDeferredTask(() => {
+                this._movieLayer.reset();
+                this._isMoviePlaying = false;
+            });
         });
     }
 }

@@ -466,14 +466,13 @@ function showEndOverlay(app, advPlayer) {
         advPlayer.soundController.fadeOutAll(1200);
     }
     const revealText = () => {
+        advPlayer.stageObj.visible = false;
         if (typeof TweenMax !== 'undefined') TweenMax.to(overlay.content, 0.35, { alpha: 1 });
         else overlay.content.alpha = 1;
     };
     if (typeof TweenMax !== 'undefined') {
-        TweenMax.to(advPlayer.stageObj, 1.2, { alpha: 0 });
         TweenMax.to(overlay.bg, 1.2, { alpha: 1, onComplete: revealText });
     } else {
-        advPlayer.stageObj.alpha = 0;
         overlay.bg.alpha = 1;
         revealText();
     }

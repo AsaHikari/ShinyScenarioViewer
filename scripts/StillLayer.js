@@ -9,7 +9,7 @@ class StillLayer {
     get stageObj() { return this._container; }
 
     // Switch to still image or apply still-layer command.
-    control(name) {
+    control(name, opts = {}) {
         if (name === 'on') {
             if (this._current) this._current.visible = true;
             return;
@@ -28,8 +28,13 @@ class StillLayer {
         const sprite  = new PIXI.Sprite(res.texture);
         sprite.width  = 1136;
         sprite.height = 640;
-        sprite.alpha  = 0;
+        sprite.alpha  = opts.instant ? 1 : 0;
         this._container.addChild(sprite);
+
+        if (opts.instant) {
+            this._replaceSprite(sprite);
+            return;
+        }
 
         TweenMax.to(sprite, 0.5, {
             alpha: 1,

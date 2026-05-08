@@ -51,11 +51,11 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
         if (!ctrl) return;
         const bp = ctrl.beforePlay;
         if (bp === 'clear') {
-            this._setBodyLineHeight(false);
+            this._setBodyLineHeight();
             this._textPlayer.clear();
         }
         if (bp === 'addLine') {
-            this._setBodyLineHeight(true);
+            this._setBodyLineHeight();
             this._textPlayer.addLineBreak();
         }
         this._textControl = null;
@@ -342,8 +342,8 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
         this._container.addChild(this._textObj);
     }
 
-    _setBodyLineHeight(isJoinedText) {
+    _setBodyLineHeight() {
         if (!this._textObj) return;
-        this._textObj.style.lineHeight = isJoinedText ? 30 : this._fontSize - 5.5;
+        this._textObj.style.lineHeight = this._fontSize - 5.5;
     }
 }

@@ -130,11 +130,8 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
         this._container.addChild(panelBase);
         this._panelBase = panelBase;
 
-        // White panel (rounded; would be a sprite asset in enza)
-        const panel = new PIXI.Graphics();
-        panel.beginFill(0xFFFFFF, 0.96);
-        panel.drawRoundedRect(this._PX, this._PY, this._PW, this._PH, 14);
-        panel.endFill();
+        const panel = this._createEnzaPanelBase();
+        panel.position.set(this._PX, this._PY);
         panel.interactive = true;
         panelBase.addChild(panel);
 
@@ -159,6 +156,24 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
 
         this._buildCloseBtn(panelBase);
         this._setupScroll(backdrop, panel);
+    }
+
+    _createEnzaPanelBase() {
+        const res = PIXI.Loader.shared.resources['uiCommonAtlas'];
+        const tex = (res && res.textures && res.textures['stretch_white_round_10.png'])
+            || PIXI.utils.TextureCache['stretch_white_round_10.png'];
+        if (tex) {
+            const panel = new PIXI.NineSlicePlane(tex, 10, 10, 10, 10);
+            panel.width = this._PW;
+            panel.height = this._PH;
+            panel.alpha = 0.96;
+            return panel;
+        }
+        const fallback = new PIXI.Graphics();
+        fallback.beginFill(0xFFFFFF, 0.96);
+        fallback.drawRoundedRect(0, 0, this._PW, this._PH, 10);
+        fallback.endFill();
+        return fallback;
     }
 
     _buildCloseBtn(parent) {
@@ -262,6 +277,7 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
             : null;
         let selectedFrame = defaultSelectedFrame;
 
+
         // Build resolved entry list applying enza's propagation rules
         let prev = this._tracks[0];
         const resolved = this._tracks.map((raw) => {
@@ -362,7 +378,7 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
         const entry = new PIXI.Container();
         const tex = this._getTex(e.logTextFrame);
         const frame = this._makeFrame(tex);
-        frame.position.set(0, 0);
+        frame.position.set(0, 0); 
         entry.addChild(frame);
 
         const body = new PIXI.Text(e.text || '', {
