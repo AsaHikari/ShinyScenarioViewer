@@ -74,7 +74,9 @@ const ASSET_FORMAT = {
     voice:      `${ASSET_PATH}/sounds/voice/events/\${id}.m4a`,
     textFrame:  `${ASSET_PATH}/images/event/text_frame/\${id}.png`,
     still:      `${ASSET_PATH}/images/event/still/\${id}.jpg`,
-    movie:      `${ASSET_PATH}/movies/\${id}.mp4`,
+    movie:      `${ASSET_PATH}/movies/idols/card/\${id}.mp4`,
+    gameEventCommunicationMovie: `${ASSET_PATH}/movies/game_event_communications/\${id}.mp4`,
+    gameEventCommunicationSe:    `${ASSET_PATH}/sounds/se/game_event_communications/\${id}.m4a`,
 };
 
 // Character (per-id+category) URL templates
@@ -104,6 +106,8 @@ const UI_TAP_SE_URL = `${ASSET_PATH}/sounds/se/003.m4a`;
 const UI_TAP_SE_KEY = 'uiTapSe';
 const UI_CANCEL_SE_URL = `${ASSET_PATH}/sounds/se/004.m4a`;
 const UI_CANCEL_SE_KEY = 'uiCancelSe';
+const SELECT_ANSWER_SE_URL = `${ASSET_PATH}/sounds/se/227.m4a`;
+const SELECT_ANSWER_SE_KEY = 'selectAnswerSe';
 
 // Producer bubble (looping voice for producer dialogue).
 const PRODUCER_BUBBLE_KEY = 'voiceProducerDefault';
@@ -145,4 +149,3 @@ const PRODUCER_SPEAKERS = new Set(['プロデューサー', 'Producer', 'produce
 // Fallback icon when no match: sub_characters/801
 const DEFAULT_SPEAKER_ICON_ID   = '801';
 const DEFAULT_SPEAKER_ICON_TYPE = 'sub_characters';
-

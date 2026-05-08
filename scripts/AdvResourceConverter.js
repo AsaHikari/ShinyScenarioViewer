@@ -86,6 +86,8 @@ class AdvResourceConverter {
             if (t.charSpine)    list.push(t.charSpine);
             if (t.speakerIcon)  list.push(t.speakerIcon);
             if (t.logTextFrame) list.push(t.logTextFrame);
+            if (t.gameEventCommunicationMovie) list.push(t.gameEventCommunicationMovie);
+            if (t.gameEventCommunicationSe)    list.push(t.gameEventCommunicationSe);
         }
         return Array.from(new Set(list));
     }

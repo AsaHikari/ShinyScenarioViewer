@@ -1,10 +1,11 @@
 // Choice selection list — mirrors original ne / SelectList class.
 // Events: "appear", "select" { text, nextLabel }
 class SelectList extends PIXI.utils.EventEmitter {
-    constructor(config = {}) {
+    constructor(soundController = null) {
         super();
         this._container = new PIXI.Container();
         this._loader    = PIXI.Loader.shared;
+        this._sound     = soundController;
         this._frameMap  = new Map();
         this._items     = [];
         this._frameIdx  = 1;   // next frame index to use (1, 2, 3)
@@ -47,11 +48,13 @@ class SelectList extends PIXI.utils.EventEmitter {
 
         itemContainer.interactive = true;
         itemContainer.buttonMode  = true;
-        itemContainer.once('click',      () => this._onSelectItem(text, nextLabel));
-        itemContainer.once('touchstart', () => this._onSelectItem(text, nextLabel));
+        itemContainer.once('click',      () => this._onSelectItem(itemContainer, text, nextLabel));
+        itemContainer.once('touchstart', () => this._onSelectItem(itemContainer, text, nextLabel));
 
         this._container.addChild(itemContainer);
         this._items.push(itemContainer);
+        itemContainer.scale.set(1);
+        TweenMax.from(itemContainer, 0.08, { pixi: { scaleX: 0, scaleY: 0 }, ease: Power1.easeOut });
         this._frameIdx++;
     }
 
@@ -76,20 +79,35 @@ class SelectList extends PIXI.utils.EventEmitter {
 
     // ─── Private helpers ───────────────────────────────────────────────────
 
-    _onSelectItem(text, nextLabel) {
+    _onSelectItem(selected, text, nextLabel) {
+        if (this._sound) this._sound.playSeUrl(SELECT_ANSWER_SE_URL);
         // Disable all items immediately
         this._items.forEach(item => { item.interactive = false; });
 
-        // Scale-up feedback then fade out
-        const clicked = this._items.find(item => item.interactive === false);
         this._items.forEach(item => {
-            TweenMax.to(item, 0.8, { alpha: 0, ease: Power3.easeOut });
+            TweenMax.killTweensOf(item);
+            if (item === selected) {
+                TweenMax.to(item, 0.18, { pixi: { scaleX: 1.2, scaleY: 1.2 }, ease: Back.easeOut });
+                TweenMax.to(item, 0.18, { alpha: 0, delay: 0.78, ease: Power1.easeOut });
+            } else {
+                TweenMax.to(item, 0.10, {
+                    pixi: { y: item.y - 50, scaleX: 0.66, scaleY: 0.66 },
+                    alpha: 0.66,
+                    ease: Power1.easeOut,
+                });
+                TweenMax.to(item, 0.20, {
+                    pixi: { y: item.y + 100, scaleX: 0, scaleY: 0 },
+                    alpha: 0,
+                    delay: 0.10,
+                    ease: Power2.easeIn,
+                });
+            }
         });
         setTimeout(() => {
             this._container.removeChildren();
             this._items   = [];
             this._active  = false;
             this.emit('select', { text, nextLabel });
-        }, 500);
+        }, 960);
     }
 }

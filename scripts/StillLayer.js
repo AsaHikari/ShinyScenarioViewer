@@ -8,9 +8,17 @@ class StillLayer {
 
     get stageObj() { return this._container; }
 
-    // Switch to still image or clear.  ctrl controls the transition style.
-    control(name, ctrl) {
+    // Switch to still image or apply still-layer command.
+    control(name) {
+        if (name === 'on') {
+            if (this._current) this._current.visible = true;
+            return;
+        }
         if (!name || name === 'off') {
+            this._fadeOut();
+            return;
+        }
+        if (name === 'fade_out') {
             this._fadeOut();
             return;
         }
@@ -23,17 +31,11 @@ class StillLayer {
         sprite.alpha  = 0;
         this._container.addChild(sprite);
 
-        const fadeDur = (ctrl === 'instant') ? 0 : 0.5;
-        if (fadeDur === 0) {
-            sprite.alpha = 1;
-            this._replaceSprite(sprite);
-        } else {
-            TweenMax.to(sprite, fadeDur, {
-                alpha: 1,
-                ease: Power1.easeIn,
-                onComplete: () => this._replaceSprite(sprite),
-            });
-        }
+        TweenMax.to(sprite, 0.5, {
+            alpha: 1,
+            ease: Power1.easeIn,
+            onComplete: () => this._replaceSprite(sprite),
+        });
     }
 
     // controlState handles textFrame visibility on top of still

@@ -13,10 +13,10 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._fgLayer        = new FgLayer();
         this._stillLayer     = new StillLayer();
         this._scenarioPlayer = new ScenarioPlayer();
-        this._selectList     = new SelectList();
         this._effectLayer    = new EffectLayer();
         this._movieLayer     = new MovieLayer();
         this._soundController = new SoundController();
+        this._selectList     = new SelectList(this._soundController);
         this._mainController = new MainController(this._soundController);
         this._scenarioLogLayer = new ScenarioLogLayer();
 
@@ -339,7 +339,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
             bgm, bgmFadeTime, se, voice, voiceKeep, lip,
             select, nextLabel,
             charStill, stillCtrl, still,
-            movie, gameEventCommunicationMovie,
+            movie, gameEventCommunicationMovie, gameEventCommunicationSe,
             charSpine, charLabel, charPosition, charScale,
             charAnim1, charAnim2, charAnim3, charAnim4, charAnim5,
             charAnim1Loop, charAnim2Loop, charAnim3Loop, charAnim4Loop, charAnim5Loop,
@@ -395,12 +395,13 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         if (fg !== undefined)       Q.push(this._fgLayer.control(fg, fgEffect, fgEffectTime, this._effectSpeed));
 
         // Stills
-        if (charStill !== undefined) this._stillLayer.control(charStill, stillCtrl);
-        if (still     !== undefined) this._stillLayer.control(still,     stillCtrl);
+        if (charStill !== undefined) this._stillLayer.control(charStill);
+        if (still     !== undefined) this._stillLayer.control(still);
+        if (stillCtrl !== undefined) this._stillLayer.control(stillCtrl);
 
         // BGM / SE
         if (bgm) this._soundController.control('bgm', bgm, bgmFadeTime);
-        if (se)  this._soundController.control('se',  se);
+        if (se && !movie) this._soundController.control('se',  se);
 
         // Character (asset = converted charSpine URL)
         if (charSpine || charLabel) {
@@ -425,8 +426,8 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         if (effectValue) Q.push(this._effectLayer.control(effectLabel, effectTarget, effectValue, this._effectSpeed));
 
         // Movie
-        if (movie)                       { this._changeToLocked(); this._controlMovie(movie); }
-        if (gameEventCommunicationMovie) { this._changeToLocked(); this._controlMovie(gameEventCommunicationMovie); }
+        if (movie)                       { this._changeToLocked(); this._controlMovie(movie, se); }
+        if (gameEventCommunicationMovie) { this._changeToLocked(); this._controlMovie(gameEventCommunicationMovie, gameEventCommunicationSe); }
 
         // autoWaitTime — only effective in AUTO mode (matches enza)
         this._autoWaitTime = (autoWaitTime > 0 && this._mode === SpeedMode.AUTO) ? autoWaitTime : 0;
@@ -477,7 +478,8 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
             });
     }
 
-    _controlMovie(url) {
+    _controlMovie(url, seUrl) {
+        if (seUrl) this._soundController.control('se', seUrl);
         this._movieLayer.control(url).then(() => this._handleWaitEnd());
     }
 }

@@ -106,6 +106,9 @@ async function startScenarioPlayer(eventType, eventId) {
     if (!loader.resources[UI_CANCEL_SE_KEY]) {
         loader.add(UI_CANCEL_SE_KEY, UI_CANCEL_SE_URL);
     }
+    if (!loader.resources[SELECT_ANSWER_SE_KEY]) {
+        loader.add(SELECT_ANSWER_SE_KEY, SELECT_ANSWER_SE_URL);
+    }
 
     // Producer bubble (looping beep for producer dialogue)
     if (!loader.resources[PRODUCER_BUBBLE_KEY]) {
