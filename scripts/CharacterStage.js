@@ -6,14 +6,16 @@ class CharacterStage {
         this._container  = new PIXI.Container();
         this._loader     = PIXI.Loader.shared;
         this._spineMap   = new Map();   // uid → PIXI.spine.Spine
+        this._layerMap   = new Map();   // uid → character wrapper container
         this._currSpine  = {};          // label → { currCharId, currCharCategory }
+        this._instanceSeq = 0;
         this._activeEffects = new Set();
         this._lipAnim = null;
 
         this.LOOP_EVENT_NAME  = 'loop_start';
         this.RELAY_EVENT_NAME = 'relay';
         this.LIP_EVENT_NAME   = 'lip';
-        
+
         this.ANIMATION_MIX    = 0.3;
     }
 
@@ -39,53 +41,55 @@ class CharacterStage {
 
         if (!label) return Promise.resolve();
 
-        if (asset) this._currSpine[label] = { uid: asset };
+        if (asset) {
+            this._currSpine[label] = {
+                uid: `${label}:${asset}:${++this._instanceSeq}`,
+                asset,
+            };
+        }
 
         const uid = this._getUid(label);
         if (!uid) return Promise.resolve();
+        const assetUid = this._currSpine[label]?.asset || uid;
 
-        const spine = this._getOrCreateSpine(uid);
+        const spine = this._getOrCreateSpine(uid, assetUid);
         if (!spine) return Promise.resolve();
+        const layer = this._getCharacterLayer(uid);
+        if (!layer) return Promise.resolve();
 
         // Bring onto stage
-        this._container.addChild(spine);
+        this._container.addChild(layer);
 
-        // When fading OUT (alpha tween to 0), keep current state visible until fully hidden.
-        // Position + animation changes are deferred to AFTER the tween completes (enza behavior).
-        const isFadingOut = !!(effect && effect.alpha === 0 && effect.type !== 'from');
+        // Position & scale live on the character wrapper, matching enza's _spineLayer.
+        if (position) {
+            layer.position.set(position.x, position.y);
+            const targetIdx = Math.min(position.order ?? 0, this._container.children.length - 1);
+            this._container.setChildIndex(layer, targetIdx);
+        }
+        if (scale) layer.scale.set(scale);
 
-        if (!isFadingOut) {
-            // Position & scale
-            if (position) {
-                spine.position.set(position.x, position.y);
-                const targetIdx = Math.min(position.order ?? 0, this._container.children.length - 1);
-                this._container.setChildIndex(spine, targetIdx);
-            }
-            if (scale) spine.scale = scale;
+        // Animations (tracks 0–4)
+        if (anim1) this._setAnim(anim1, anim1Loop ?? true, 0, spine);
+        if (anim2) this._setAnim(anim2, anim2Loop ?? true, 1, spine);
+        if (anim3) this._setAnim(anim3, anim3Loop ?? true, 2, spine);
+        if (anim4) this._setAnim(anim4, anim4Loop ?? true, 3, spine);
+        if (anim5) this._setAnim(anim5, anim5Loop ?? true, 4, spine);
 
-            // Animations (tracks 0–4)
-            if (anim1) this._setAnim(anim1, anim1Loop ?? true, 0, spine);
-            if (anim2) this._setAnim(anim2, anim2Loop ?? true, 1, spine);
-            if (anim3) this._setAnim(anim3, anim3Loop ?? true, 2, spine);
-            if (anim4) this._setAnim(anim4, anim4Loop ?? true, 3, spine);
-            if (anim5) this._setAnim(anim5, anim5Loop ?? true, 4, spine);
-
-            // Lip animation (track 5) is stopped by the voice instance's own end
-            // event. Duration metadata can be shorter than actual playback on some
-            // decoded files, so don't use it as a fallback while a voice object exists.
-            if (lipAnim) {
-                this._setAnim(lipAnim, true, 5, spine);
-                const stop = () => this.stopLipAnimation(label);
-                if (voiceObj && typeof voiceObj.once === 'function') {
-                    let stopped = false;
-                    const safeStop = () => { if (stopped) return; stopped = true; stop(); };
-                    voiceObj.once('end', safeStop);
-                    voiceObj.once('ended', safeStop);
-                } else if (lipAnimDuration) {
-                    // No voice object available (e.g. lipAnimDuration explicitly given) —
-                    // fall back to a buffered timer (+200ms slack to avoid early close).
-                    setTimeout(() => this.stopLipAnimation(label), lipAnimDuration * 1000 + 200);
-                }
+        // Lip animation (track 5) is stopped by the voice instance's own end
+        // event. Duration metadata can be shorter than actual playback on some
+        // decoded files, so don't use it as a fallback while a voice object exists.
+        if (lipAnim) {
+            this._setAnim(lipAnim, true, 5, spine);
+            const stop = () => this.stopLipAnimation(label);
+            if (voiceObj && typeof voiceObj.once === 'function') {
+                let stopped = false;
+                const safeStop = () => { if (stopped) return; stopped = true; stop(); };
+                voiceObj.once('end', safeStop);
+                voiceObj.once('ended', safeStop);
+            } else if (lipAnimDuration) {
+                // No voice object available (e.g. lipAnimDuration explicitly given) —
+                // fall back to a buffered timer (+200ms slack to avoid early close).
+                setTimeout(() => this.stopLipAnimation(label), lipAnimDuration * 1000 + 200);
             }
         }
 
@@ -94,24 +98,7 @@ class CharacterStage {
 
         // charEffect tween — returns Promise if there is one
         if (effect) {
-            const effectPromise = this._applyEffect(spine, effect, effectSpeed);
-            if (isFadingOut) {
-                // Defer position/animation updates until AFTER fade-out (character now invisible)
-                effectPromise.then(() => {
-                    if (position) {
-                        spine.position.set(position.x, position.y);
-                        const targetIdx = Math.min(position.order ?? 0, this._container.children.length - 1);
-                        this._container.setChildIndex(spine, targetIdx);
-                    }
-                    if (scale) spine.scale = scale;
-                    if (anim1) this._setAnim(anim1, anim1Loop ?? true, 0, spine);
-                    if (anim2) this._setAnim(anim2, anim2Loop ?? true, 1, spine);
-                    if (anim3) this._setAnim(anim3, anim3Loop ?? true, 2, spine);
-                    if (anim4) this._setAnim(anim4, anim4Loop ?? true, 3, spine);
-                    if (anim5) this._setAnim(anim5, anim5Loop ?? true, 4, spine);
-                });
-            }
-            return effectPromise;
+            return this._applyEffect(layer, effect, effectSpeed);
         }
         return Promise.resolve();
     }
@@ -155,7 +142,9 @@ class CharacterStage {
     reset() {
         this._container.removeChildren();
         this._spineMap.clear();
+        this._layerMap.clear();
         this._currSpine = {};
+        this._instanceSeq = 0;
         this._activeEffects.clear();
     }
 
@@ -165,24 +154,26 @@ class CharacterStage {
         return this._currSpine[label]?.uid ?? null;
     }
 
-    _getOrCreateSpine(uid) {
+    _getOrCreateSpine(uid, assetUid = uid) {
         if (!this._spineMap.has(uid)) {
-            const res = this._loader.resources[uid];
+            const res = this._loader.resources[assetUid];
             if (!res || !res.spineData) {
-                console.warn(`[CharacterStage] spine resource not found: ${uid}`);
+                console.warn(`[CharacterStage] spine resource not found: ${assetUid}`);
                 return null;
             }
             const spine = new PIXI.spine.Spine(res.spineData);
-            const alphaFilter = new PIXI.filters.AlphaFilter();
-            alphaFilter.alpha = 1;
-            alphaFilter.padding = 200;
-            spine.filters = [alphaFilter];
-            spine.alphaFilter = alphaFilter;
+            const layer = new PIXI.Container();
+            layer.addChild(spine);
             try { spine.skeleton.setSkinByName('normal'); }
             catch { spine.skeleton.setSkinByName('default'); }
             this._spineMap.set(uid, spine);
+            this._layerMap.set(uid, layer);
         }
         return this._spineMap.get(uid);
+    }
+
+    _getCharacterLayer(uid) {
+        return this._layerMap.get(uid) ?? null;
     }
 
     _setAnim(animName, loop, trackNo, spine) {
@@ -259,7 +250,7 @@ class CharacterStage {
         return trackEntry;
     }
 
-    _applyEffect(spine, effect, effectSpeed) {
+    _applyEffect(layer, effect, effectSpeed) {
         const duration = (effect.time ?? 1000) / 1000 / effectSpeed;
         const tweener = (typeof gsap !== 'undefined') ? gsap
                       : (typeof TweenMax !== 'undefined') ? TweenMax
@@ -285,52 +276,96 @@ class CharacterStage {
                 if (tween) record.tweens.push(tween);
                 return tween;
             };
+            const useGsap = typeof gsap !== 'undefined' && tweener === gsap;
+            const ease = this._resolveEase(effect.easing ?? effect.ease, useGsap);
+            const tweenJobs = [];
+
             if (effect.alpha !== undefined) {
-                if (!effect.x && !effect.y && !effect.scale) {
-                    if (effect.type === 'from') {
-                        trackTween(this._startTween(tweener, spine.alphaFilter, 'from', duration, {
-                            alpha: effect.alpha,
-                            onComplete: record.finish,
-                        }));
-                    } else {
-                        trackTween(this._startTween(tweener, spine.alphaFilter, 'to', duration, {
-                            alpha: effect.alpha,
-                            onComplete: record.finish,
-                        }));
-                    }
-                    return;
-                }
-                // Mixed: alpha separately, transform separately
-                trackTween(this._startTween(tweener, spine.alphaFilter, 'to', duration, { alpha: effect.alpha }));
-                const transformEffect = { ...effect };
-                delete transformEffect.alpha;
-                trackTween(this._startTween(tweener, spine, 'to', duration, {
-                    ...transformEffect,
-                    onComplete: record.finish,
-                }));
-            } else {
-                if (effect.type === 'from') {
-                    trackTween(this._startTween(tweener, spine, 'from', duration, {
-                        ...effect,
-                        onComplete: record.finish,
-                    }));
-                } else {
-                    trackTween(this._startTween(tweener, spine, 'to', duration, {
-                        ...effect,
-                        onComplete: record.finish,
-                    }));
-                }
+                const alphaProps = this._buildScalarProps(layer, 'alpha', effect.alpha, effect.type, ease);
+                tweenJobs.push({ target: layer, props: alphaProps });
             }
+
+            const transformProps = this._buildTransformProps(layer, effect, ease);
+            if (Object.keys(transformProps).length) {
+                tweenJobs.push({ target: layer, props: transformProps });
+            }
+
+            const scaleProps = this._buildScaleProps(layer, effect, ease);
+            if (Object.keys(scaleProps).length) {
+                tweenJobs.push({ target: layer.scale, props: scaleProps });
+            }
+
+            if (!tweenJobs.length) {
+                record.finish();
+                return;
+            }
+            tweenJobs[tweenJobs.length - 1].props.onComplete = record.finish;
+            tweenJobs.forEach(job => trackTween(this._startTween(tweener, job.target, duration, job.props)));
         });
     }
 
-    _startTween(tweener, target, type, duration, props) {
+    _buildScalarProps(target, key, value, type, ease) {
+        const props = { [key]: value, ease };
+        if (type === 'from') [target[key], props[key]] = [props[key], target[key]];
+        return props;
+    }
+
+    _buildTransformProps(layer, effect, ease) {
+        const props = {};
+        if (effect.x !== undefined) props.x = layer.x + effect.x;
+        if (effect.y !== undefined) props.y = layer.y + effect.y;
+        if (effect.type === 'from') {
+            if (props.x !== undefined) [layer.x, props.x] = [props.x, layer.x];
+            if (props.y !== undefined) [layer.y, props.y] = [props.y, layer.y];
+        }
+        if (Object.keys(props).length) props.ease = ease;
+        return props;
+    }
+
+    _buildScaleProps(layer, effect, ease) {
+        if (effect.scale === undefined) return {};
+        const props = { x: effect.scale, y: effect.scale, ease };
+        if (effect.type === 'from') {
+            [layer.scale.x, props.x] = [props.x, layer.scale.x];
+            [layer.scale.y, props.y] = [props.y, layer.scale.y];
+        }
+        return props;
+    }
+
+    _startTween(tweener, target, duration, props) {
         const cleanProps = { ...props };
         delete cleanProps.type;
         delete cleanProps.time;
         if (typeof gsap !== 'undefined' && tweener === gsap) {
-            return tweener[type](target, { ...cleanProps, duration });
+            return tweener.to(target, { ...cleanProps, duration });
         }
-        return tweener[type](target, duration, cleanProps);
+        return tweener.to(target, duration, cleanProps);
+    }
+
+    _resolveEase(easing, useGsap = true) {
+        if (!useGsap) {
+            switch (easing) {
+                case 'easeInOutQuad': return Power1.easeInOut;
+                case 'easeInQuad': return Power1.easeIn;
+                case 'easeOutQuad': return Power1.easeOut;
+                case 'easeInOutCubic': return Power2.easeInOut;
+                case 'easeInCubic': return Power2.easeIn;
+                case 'easeOutCubic': return Power2.easeOut;
+                case 'easeInOutSine': return typeof Sine !== 'undefined' ? Sine.easeInOut : Power1.easeInOut;
+                case 'none': return typeof Power0 !== 'undefined' ? Power0.easeNone : Power1.easeInOut;
+                default: return Power1.easeInOut;
+            }
+        }
+        switch (easing) {
+            case 'easeInOutQuad': return 'power1.inOut';
+            case 'easeInQuad': return 'power1.in';
+            case 'easeOutQuad': return 'power1.out';
+            case 'easeInOutCubic': return 'power2.inOut';
+            case 'easeInCubic': return 'power2.in';
+            case 'easeOutCubic': return 'power2.out';
+            case 'easeInOutSine': return 'sine.inOut';
+            case 'none': return 'none';
+            default: return 'power1.inOut';
+        }
     }
 }

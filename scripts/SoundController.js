@@ -14,6 +14,7 @@ class SoundController {
     }
 
     control(type, url, fadeTime, loop) {
+        if (this._isCommand(url)) return this._controlCommand(type, url, fadeTime);
         // FAST mode disables se + voice playback (mirrors enza soundDisabled)
         if (this._soundDisabled && (type === 'voice' || type === 'se')) return null;
         switch (type) {
@@ -118,38 +119,42 @@ class SoundController {
     }
 
     _playBgm(url, fadeTime) {
-        if (url === 'fade_out') {
-            if (this._currentBgm) {
-                const inst = this._currentBgm;
-                if (typeof gsap !== 'undefined') {
-                    gsap.to(inst, { volume: 0, duration: (fadeTime || 1000) / 1000,
-                        onComplete: () => { try { inst.stop(); } catch(_){} } });
-                } else if (typeof TweenMax !== 'undefined') {
-                    TweenMax.to(inst, (fadeTime || 1000) / 1000,
-                        { volume: 0, onComplete: () => { try { inst.stop(); } catch(_){} } });
-                } else {
-                    try { inst.stop(); } catch(_) {}
-                }
-            }
-            return;
-        }
-        if (url === 'off') {
-            if (this._currentBgm) { try { this._currentBgm.stop(); } catch(_){}; this._currentBgm = null; this._currentBgmUrl = null; }
-            return;
-        }
         if (url === this._currentBgmUrl) return;       // already playing this BGM
-        if (this._currentBgm) { try { this._currentBgm.stop(); } catch(_){}; this._currentBgm = null; }
+        const oldBgm = this._currentBgm;
+        const crossFade = !!(oldBgm && fadeTime);
+        if (oldBgm) {
+            if (crossFade) {
+                this._fadeStop(oldBgm, fadeTime, () => {
+                    if (this._currentBgm === oldBgm) {
+                        this._currentBgm = null;
+                        this._currentBgmUrl = null;
+                    }
+                });
+            } else {
+                try { oldBgm.stop(); } catch(_) {}
+            }
+            this._currentBgm = null;
+            this._currentBgmUrl = null;
+        }
 
         const res = this._loader.resources[url];
         if (!res || !res.sound) return;
         try {
-            this._currentBgm = res.sound.play({ loop: true, singleInstance: true });
+            const inst = res.sound.play({ loop: true, singleInstance: true });
+            this._currentBgm = inst;
             this._currentBgmUrl = url;
-            res.sound.volume = 0.5;
+            const targetVolume = this._getVolume(inst, this._getVolume(res.sound, 0.5));
+            if (crossFade) {
+                this._setVolume(inst, 0);
+                this._fadeVolume(inst, targetVolume, fadeTime);
+            } else {
+                this._setVolume(inst, targetVolume);
+            }
         } catch(_) {}
     }
 
     _playSe(url) {
+        this.removeSe();
         const res = this._loader.resources[url];
         if (!res || !res.sound) return;
         try { this._currentSe = res.sound.play({ loop: false }); } catch(_) {}
@@ -191,6 +196,87 @@ class SoundController {
             }
         } catch (_) {
             finish();
+        }
+    }
+
+    _isCommand(url) {
+        return url === 'pause' || url === 'resume' || url === 'off' || url === 'fade_out';
+    }
+
+    _controlCommand(type, command, fadeTime) {
+        const slot = this._slotFor(type);
+        if (!slot) return null;
+        const inst = this[slot.instance];
+        switch (command) {
+            case 'pause':
+                if (inst) this._pause(inst);
+                return inst || null;
+            case 'resume':
+                if (inst) this._resume(inst);
+                return inst || null;
+            case 'off':
+                if (inst) {
+                    try { inst.stop(); } catch(_) {}
+                }
+                this[slot.instance] = null;
+                if (slot.extra) this[slot.extra] = null;
+                if (slot.url) this[slot.url] = null;
+                return null;
+            case 'fade_out':
+                this._fadeStop(inst, fadeTime || 4000, () => {
+                    this[slot.instance] = null;
+                    if (slot.extra) this[slot.extra] = null;
+                    if (slot.url) this[slot.url] = null;
+                });
+                return inst || null;
+        }
+        return null;
+    }
+
+    _slotFor(type) {
+        switch (type) {
+            case 'bgm': return { instance: '_currentBgm', url: '_currentBgmUrl' };
+            case 'se': return { instance: '_currentSe' };
+            case 'voice': return { instance: '_currentVoice', extra: '_currentVoiceRes' };
+            default: return null;
+        }
+    }
+
+    _pause(inst) {
+        try {
+            if (typeof inst.pause === 'function') inst.pause();
+            else inst.paused = true;
+        } catch (_) {}
+    }
+
+    _resume(inst) {
+        try {
+            if (typeof inst.resume === 'function') inst.resume();
+            else inst.paused = false;
+        } catch (_) {}
+    }
+
+    _getVolume(obj, fallback = 1) {
+        return obj && typeof obj.volume === 'number' ? obj.volume : fallback;
+    }
+
+    _setVolume(obj, volume) {
+        try {
+            if (obj && typeof obj.volume === 'number') obj.volume = volume;
+        } catch (_) {}
+    }
+
+    _fadeVolume(inst, volume, duration) {
+        try {
+            if (typeof gsap !== 'undefined') {
+                gsap.to(inst, { volume, duration: duration / 1000 });
+            } else if (typeof TweenMax !== 'undefined') {
+                TweenMax.to(inst, duration / 1000, { volume });
+            } else {
+                this._setVolume(inst, volume);
+            }
+        } catch (_) {
+            this._setVolume(inst, volume);
         }
     }
 }
