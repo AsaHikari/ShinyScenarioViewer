@@ -409,12 +409,12 @@ canvas {
     display: block;
 }
 
-.scenario-card.fes-ready:hover .scenario-thumb-classic {
+.scenario-card.has-idol-color:hover .scenario-thumb-classic {
     opacity: 0;
     clip-path: inset(0 0 0 100%);
 }
 
-.scenario-card.fes-ready:hover .scenario-thumb-fes {
+.scenario-card.has-idol-color:hover .scenario-thumb-fes {
     opacity: 0.42;
     clip-path: inset(0 0 0 0);
 }

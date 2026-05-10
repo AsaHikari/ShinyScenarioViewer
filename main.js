@@ -390,7 +390,7 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
                     ${style.charId ? `
                     <span class="scenario-thumb-frame" aria-hidden="true">
                         <img class="scenario-thumb scenario-thumb-classic" src="./assets/thumbnail/classic/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="classic" data-char-id="${style.charId}" data-ext-index="0" loading="lazy" decoding="async" alt="" />
-                        <img class="scenario-thumb scenario-thumb-fes" src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0" loading="lazy" decoding="async" alt="" />
+                        <img class="scenario-thumb scenario-thumb-fes" src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0" loading="eager" decoding="async" alt="" />
                     </span>` : ''}
                     <span class="scenario-category">${escapeHtml(item.eventType)}</span>
                     <strong>${escapeHtml(item.eventId)}</strong>

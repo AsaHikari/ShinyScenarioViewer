@@ -9,7 +9,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
 
         this._bgLayer        = new BgLayer();
         this._middleFgLayer  = new MiddleFgLayer();
-        this._characterStage = new CharacterStage();
+        this._characterStage = new CharacterStage(app);
         this._fgLayer        = new FgLayer();
         this._stillLayer     = new StillLayer();
         this._scenarioPlayer = new ScenarioPlayer();

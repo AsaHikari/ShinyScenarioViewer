@@ -2,7 +2,8 @@
 // control() returns a Promise (resolves immediately unless there is a charEffect tween).
 // Mirrors the original _characterStage component logic.
 class CharacterStage {
-    constructor() {
+    constructor(app = null) {
+        this._app        = app;
         this._container  = new PIXI.Container();
         this._loader     = PIXI.Loader.shared;
         this._spineMap   = new Map();   // uid → PIXI.spine.Spine
@@ -70,16 +71,16 @@ class CharacterStage {
 
         // Animations (tracks 0–4)
         if (anim1) this._setAnim(anim1, anim1Loop ?? true, 0, spine);
-        if (anim2) this._setAnim(anim2, anim2Loop ?? true, 1, spine);
-        if (anim3) this._setAnim(anim3, anim3Loop ?? true, 2, spine);
-        if (anim4) this._setAnim(anim4, anim4Loop ?? true, 3, spine);
-        if (anim5) this._setAnim(anim5, anim5Loop ?? true, 4, spine);
+        if (anim2) this._setOverlayAnim(anim2, anim2Loop ?? true, 1, spine);
+        if (anim3) this._setOverlayAnim(anim3, anim3Loop ?? true, 2, spine);
+        if (anim4) this._setOverlayAnim(anim4, anim4Loop ?? true, 3, spine);
+        if (anim5) this._setOverlayAnim(anim5, anim5Loop ?? true, 4, spine);
 
         // Lip animation (track 5) is stopped by the voice instance's own end
         // event. Duration metadata can be shorter than actual playback on some
         // decoded files, so don't use it as a fallback while a voice object exists.
         if (lipAnim) {
-            this._setAnim(lipAnim, true, 5, spine);
+            this._setOverlayAnim(lipAnim, true, 5, spine);
             const stop = () => this.stopLipAnimation(label);
             if (voiceObj && typeof voiceObj.once === 'function') {
                 let stopped = false;
@@ -176,12 +177,14 @@ class CharacterStage {
         return this._layerMap.get(uid) ?? null;
     }
 
+    _setOverlayAnim(animName, loop, trackNo, spine) {
+        const trackEntry = this._setAnim(animName, loop, trackNo, spine);
+        if (trackEntry) trackEntry.alpha = 0.99;
+        return trackEntry;
+    }
+
     _setAnim(animName, loop, trackNo, spine) {
         if (!animName) return null;
-        if (animName === 'blank') {
-            spine.state.addEmptyAnimation(trackNo, this.ANIMATION_MIX, 0);
-            return null;
-        }
 
         const animation = spine.spineData.animations.find(a => a.name === animName);
         if (!animation) {
@@ -218,19 +221,15 @@ class CharacterStage {
         }
 
         const hasRelay = relayAnim && spine.spineData.animations.find(a => a.name === relayAnim);
-        if (beforeAnimation) spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
-        const trackEntry = spine.state.setAnimation(trackNo, animName, loop);
-
-        const relayTrackNo = 10 + trackNo;
+        let trackEntry = null;
         if (hasRelay) {
             if (beforeAnimation) spine.stateData.setMix(beforeAnim, relayAnim, this.ANIMATION_MIX);
-            const shadow = spine.state.setAnimation(relayTrackNo, beforeAnim, false);
-            shadow.trackTime = beforeTime;
-            shadow.nextTrackLast = 0;
-            spine.state.setAnimation(relayTrackNo, relayAnim, false);
-            spine.state.addEmptyAnimation(relayTrackNo, this.ANIMATION_MIX, 0);
+            spine.stateData.setMix(relayAnim, animName, this.ANIMATION_MIX);
+            spine.state.setAnimation(trackNo, relayAnim, false);
+            trackEntry = spine.state.addAnimation(trackNo, animName, loop, 0);
         } else {
-            if (spine.state.getCurrent(relayTrackNo)) spine.state.clearTrack(relayTrackNo);
+            if (beforeAnimation) spine.stateData.setMix(beforeAnim, animName, this.ANIMATION_MIX);
+            trackEntry = spine.state.setAnimation(trackNo, animName, loop);
         }
 
         // Partial-loop listener
@@ -264,9 +263,14 @@ class CharacterStage {
             const record = {
                 tweens: [],
                 done: false,
+                fadeState: null,
                 finish: () => {
                     if (record.done) return;
                     record.done = true;
+                    if (record.fadeState) {
+                        this._endFade(record.fadeState);
+                        record.fadeState = null;
+                    }
                     this._activeEffects.delete(record);
                     resolve();
                 },
@@ -280,6 +284,7 @@ class CharacterStage {
             const ease = this._resolveEase(effect.easing ?? effect.ease, useGsap);
             const tweenJobs = [];
 
+            record.fadeState = effect.alpha !== undefined ? this._beginFade(layer) : null;
             if (effect.alpha !== undefined) {
                 const alphaProps = this._buildScalarProps(layer, 'alpha', effect.alpha, effect.type, ease);
                 tweenJobs.push({ target: layer, props: alphaProps });
@@ -302,6 +307,49 @@ class CharacterStage {
             tweenJobs[tweenJobs.length - 1].props.onComplete = record.finish;
             tweenJobs.forEach(job => trackTween(this._startTween(tweener, job.target, duration, job.props)));
         });
+    }
+
+    _beginFade(layer) {
+        const spine = layer.children.find(child => child instanceof PIXI.spine.Spine);
+        const renderer = this._app?.renderer;
+        if (!spine || !renderer || typeof renderer.generateTexture !== 'function') return null;
+        try {
+            const wasAutoUpdate = spine.autoUpdate;
+            if (wasAutoUpdate) spine.autoUpdate = false;
+            spine.update(0);
+            const texture = renderer.generateTexture(spine);
+            const sprite = new PIXI.Sprite(texture);
+            const bounds = spine.getLocalBounds();
+            sprite.anchor.set(0, 0);
+            sprite.position.copyFrom(spine.position);
+            sprite.x += bounds.x;
+            sprite.y += bounds.y;
+            sprite.scale.copyFrom(spine.scale);
+            sprite.rotation = spine.rotation;
+            sprite.alpha = spine.alpha;
+            layer.addChild(sprite);
+            const state = {
+                spine,
+                sprite,
+                texture,
+                visible: spine.visible,
+                autoUpdate: wasAutoUpdate,
+            };
+            spine.visible = false;
+            spine.autoUpdate = false;
+            return state;
+        } catch (err) {
+            console.warn('[CharacterStage] failed to create fade snapshot', err);
+            return null;
+        }
+    }
+
+    _endFade(state) {
+        if (!state) return;
+        state.spine.visible = state.visible;
+        state.spine.autoUpdate = state.autoUpdate;
+        state.sprite.destroy({ children: true });
+        if (state.texture && typeof state.texture.destroy === 'function') state.texture.destroy(true);
     }
 
     _buildScalarProps(target, key, value, type, ease) {
