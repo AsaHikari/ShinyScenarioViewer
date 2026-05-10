@@ -133,7 +133,8 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=en
 
 你也可以在可视化入口处切换语言
 
-[SwitchLanguage](./SwitchLanguage.png)
+![SwitchLanguage](./SwitchLanguage.png)
+
 补充说明：
 
 - 如果指定了 `language=cn`，但剧情 JSON 中没有 `text_cn` 或 `select_cn`，会自动回退到原始 `text` / `select`。
@@ -321,11 +322,16 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=en
 
 ![Chinese Screenshot](./Chinese.png)
 ![English Screenshot](./English.png)
+
+You can also switch language in the entry page:
+
+![SwitchLanguage](./SwitchLanguage.png)
+
 Notes:
 
-- If `language=cn` is provided but the scenario JSON does not contain `text_cn` or `select_cn`, the player automatically falls back to the original `text` / `select`.
+- If `language=en` is provided but the scenario JSON does not contain `text_en` or `select_en`, the player automatically falls back to the original `text` / `select`.
 - Under `language=cn` or `language=en`, the player also switches to the Preset font configuration (`Yuanti` in the current project setup).
-- The Character circle icon shown in log window is defined and decided by the `speaker`. So I recommend not to change it if necessary.
+- The Character circle icon shown in log window is defined and decided by the `speaker`. So I recommend not to change it if not necessary.
 
 ### Optional thumbnails
 
