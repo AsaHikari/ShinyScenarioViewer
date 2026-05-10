@@ -13,6 +13,7 @@ class CharacterStage {
         this.LOOP_EVENT_NAME  = 'loop_start';
         this.RELAY_EVENT_NAME = 'relay';
         this.LIP_EVENT_NAME   = 'lip';
+        
         this.ANIMATION_MIX    = 0.3;
     }
 
@@ -31,8 +32,6 @@ class CharacterStage {
     control(p) {
         const {
             asset, label, position, scale,
-            // EventViewer-format fields
-            charId, charType, charCategory,
             anim1, anim2, anim3, anim4, anim5,
             anim1Loop, anim2Loop, anim3Loop, anim4Loop, anim5Loop,
             lipAnim, lipAnimDuration, lipMarks, voiceObj, effect, effectSpeed = 1,
@@ -40,16 +39,7 @@ class CharacterStage {
 
         if (!label) return Promise.resolve();
 
-        // Resolve the spine UID — supports both formats:
-        //   enza native: asset = charSpine path fragment
-        //   EventViewer:  charId + charType + charCategory
-        if (asset) {
-            this._currSpine[label] = { uid: asset };
-        } else if (charId) {
-            const cat = SPINE_ALIAS[charCategory] ?? charCategory ?? 'stand';
-            const uid = `${label}_${charId}_${cat}`;
-            this._currSpine[label] = { uid };
-        }
+        if (asset) this._currSpine[label] = { uid: asset };
 
         const uid = this._getUid(label);
         if (!uid) return Promise.resolve();

@@ -1,7 +1,9 @@
 'use strict';
 
 const DEFAULT_ENTRY_COLOR = '#bfe9ff';
-const THUMBNAIL_CACHE_BUSTER = Date.now().toString(36);
+const THUMBNAIL_CACHE_BUSTER = 'thumb-v1';
+const SCENARIO_INDEX_CACHE_KEY = 'shinymaster.scenario.index.v2';
+const SCENARIO_INDEX_CACHE_TTL = 10 * 60 * 1000;
 const IDOL_COLORS = {
     '001': '#ffbad6',
     '002': '#144384',
@@ -38,16 +40,18 @@ async function init() {
     const params  = new URLSearchParams(window.location.search);
     let eventType = params.get('eventType') || 'produce_events';
     let eventId   = params.get('eventId');
+    const language = normalizeScenarioLanguage(params.get('language'));
 
     if (!eventId) {
-        await showScenarioEntryPage(eventType);
+        await showScenarioEntryPage(eventType, language);
         return;
     }
 
-    await startScenarioPlayer(eventType, eventId);
+    await startScenarioPlayer(eventType, eventId, language);
 }
 
-async function startScenarioPlayer(eventType, eventId) {
+async function startScenarioPlayer(eventType, eventId, language) {
+    applyScenarioLanguage(language);
     PIXI.utils.skipHello();
     gsap.registerPlugin(PixiPlugin);
     PixiPlugin.registerPIXI(PIXI);
@@ -61,10 +65,7 @@ async function startScenarioPlayer(eventType, eventId) {
     window.addEventListener('resize', () => resizeCanvas(app));
 
     try {
-        await Promise.all([
-            new FontFaceObserver(USED_FONT_PRIMARY).load('あいう真乃約束', FONT_TIMEOUT),
-            new FontFaceObserver(USED_FONT_SECONDARY).load('あいう真乃約束', FONT_TIMEOUT),
-        ]);
+        await loadScenarioFonts(language);
     } catch (_) { console.warn('[main] font load timed out'); }
 
     // Load scenario JSON
@@ -75,7 +76,7 @@ async function startScenarioPlayer(eventType, eventId) {
     const jsonRes = PIXI.Loader.shared.resources['scenarioJson'];
     if (!jsonRes || jsonRes.error) { alert(`Failed to load: ${jsonUrl}`); return; }
 
-    const rawTracks = jsonRes.data;
+    const rawTracks = applyTrackLanguage(jsonRes.data, language);
     if (!Array.isArray(rawTracks) || rawTracks.length === 0) {
         alert('Scenario JSON empty or invalid.'); return;
     }
@@ -173,7 +174,53 @@ async function startScenarioPlayer(eventType, eventId) {
     overlay.once('touchstart', startGame);
 }
 
-async function showScenarioEntryPage(initialType) {
+function normalizeScenarioLanguage(value) {
+    const lang = String(value || '').toLowerCase();
+    if (['cn', 'zh', 'zh-cn', 'zh_cn'].includes(lang)) return 'cn';
+    if (lang === 'en') return 'en';
+    return '';
+}
+
+function applyScenarioLanguage(language) {
+    if (language !== 'cn') return;
+    USED_FONT.length = 0;
+    USED_FONT.push('Yuanti', 'HummingStd-E-1', 'HummingStd-E-2');
+}
+
+function loadScenarioFonts(language) {
+    if (language === 'cn') {
+        return Promise.all([
+            new FontFaceObserver('Yuanti').load('中文测试真乃約束', FONT_TIMEOUT),
+            new FontFaceObserver(USED_FONT_SECONDARY).load('あいう真乃約束', FONT_TIMEOUT),
+        ]);
+    }
+    return Promise.all([
+        new FontFaceObserver(USED_FONT_PRIMARY).load('あいう真乃約束', FONT_TIMEOUT),
+        new FontFaceObserver(USED_FONT_SECONDARY).load('あいう真乃約束', FONT_TIMEOUT),
+    ]);
+}
+
+function applyTrackLanguage(rawTracks, language) {
+    if (!['cn', 'en'].includes(language) || !Array.isArray(rawTracks)) return rawTracks;
+    return rawTracks.map((track) => {
+        if (!track || typeof track !== 'object' || Array.isArray(track)) return track;
+        const next = Object.assign({}, track);
+        ['text', 'select'].forEach((field) => {
+            const localizedKey = `${field}_${language}`;
+            const originalKey = `${field}_ja`;
+            if (typeof next[localizedKey] === 'string' && next[localizedKey].trim()) {
+                if (typeof next[field] === 'string' && !next[originalKey]) {
+                    next[originalKey] = next[field];
+                }
+                next[field] = next[localizedKey];
+            }
+        });
+        return next;
+    });
+}
+
+async function showScenarioEntryPage(initialType, initialLanguage) {
+    const currentLanguage = normalizeScenarioLanguage(initialLanguage) || 'ja';
     document.body.classList.add('entry-mode');
     document.body.innerHTML = `
         <main class="entry-page">
@@ -200,6 +247,12 @@ async function showScenarioEntryPage(initialType) {
                 <div class="entry-controls">
                     <input class="scenario-search" type="search" placeholder="Search event id or category..." />
                     <select class="category-select"></select>
+                    <select class="language-select" aria-label="Language">
+                        <option value="ja">日本語</option>
+                        <option value="cn">中文</option>
+                        <option value="en">English</option>
+                    </select>
+                    <button class="refresh-index" type="button">Refresh</button>
                     <span class="entry-status">Scanning JSON folders...</span>
                 </div>
                 <div class="scenario-grid"></div>
@@ -223,11 +276,14 @@ async function showScenarioEntryPage(initialType) {
 
     const status = document.querySelector('.entry-status');
     const categorySelect = document.querySelector('.category-select');
+    const languageSelect = document.querySelector('.language-select');
+    const refreshIndex = document.querySelector('.refresh-index');
     const search = document.querySelector('.scenario-search');
     const grid = document.querySelector('.scenario-grid');
     const pageStatus = document.querySelector('.page-status');
     const prev = document.querySelector('.prev-page');
     const next = document.querySelector('.next-page');
+    languageSelect.value = currentLanguage;
 
     document.querySelector('.manual-form').addEventListener('submit', (ev) => {
         ev.preventDefault();
@@ -237,13 +293,22 @@ async function showScenarioEntryPage(initialType) {
             status.textContent = 'Use a path like produce_events/202100711';
             return;
         }
-        openScenario(parts[0], parts[1].replace(/\.json$/i, ''));
+        openScenario(parts[0], parts[1].replace(/\.json$/i, ''), languageSelect.value);
     });
+
+    let renderTimer = null;
+    const scheduleRender = () => {
+        if (renderTimer) clearTimeout(renderTimer);
+        renderTimer = setTimeout(() => {
+            renderTimer = null;
+            renderScenarioList();
+        }, 80);
+    };
 
     search.addEventListener('input', () => {
         state.query = search.value.trim().toLowerCase();
         state.page = 1;
-        renderScenarioList();
+        scheduleRender();
     });
 
     categorySelect.addEventListener('change', () => {
@@ -262,22 +327,47 @@ async function showScenarioEntryPage(initialType) {
         renderScenarioList();
     });
 
-    try {
-        state.all = await scanScenarioIndex();
-        const categories = ['all', ...Array.from(new Set(state.all.map(item => item.eventType))).sort()];
+    refreshIndex.addEventListener('click', () => loadIndex({ force: true }));
+
+    await loadIndex({ force: false });
+
+    async function loadIndex({ force }) {
+        refreshIndex.disabled = true;
+        try {
+            const cached = !force ? readScenarioIndexCache() : null;
+            if (cached) {
+                applyScenarioIndex(cached.items, `cached ${Math.round((Date.now() - cached.savedAt) / 1000)}s ago`);
+                return;
+            }
+            status.textContent = 'Scanning JSON folders...';
+            const items = await scanScenarioIndex((done, total) => {
+                status.textContent = `Scanning JSON folders... ${done}/${total}`;
+            });
+            writeScenarioIndexCache(items);
+            applyScenarioIndex(items, 'fresh');
+        } catch (err) {
+            console.error('[entry] scan failed', err);
+            status.textContent = 'Failed to scan folders. Use manual path instead.';
+            categorySelect.innerHTML = `<option value="all">all</option>`;
+            renderScenarioList();
+        } finally {
+            refreshIndex.disabled = false;
+        }
+    }
+
+    function applyScenarioIndex(items, sourceLabel) {
+        state.all = items;
+        const counts = new Map();
+        state.all.forEach(item => counts.set(item.eventType, (counts.get(item.eventType) || 0) + 1));
+        const categories = ['all', ...Array.from(counts.keys()).sort()];
         categorySelect.innerHTML = categories.map(category =>
-            `<option value="${escapeHtml(category)}">${escapeHtml(category)}${category === 'all' ? '' : ` (${state.all.filter(item => item.eventType === category).length})`}</option>`
+            `<option value="${escapeHtml(category)}">${escapeHtml(category)}${category === 'all' ? '' : ` (${counts.get(category) || 0})`}</option>`
         ).join('');
         categorySelect.value = categories.includes(state.category) ? state.category : 'all';
         state.category = categorySelect.value;
-        status.textContent = `${state.all.length} scenario JSON files found`;
-    } catch (err) {
-        console.error('[entry] scan failed', err);
-        status.textContent = 'Failed to scan folders. Use manual path instead.';
-        categorySelect.innerHTML = `<option value="all">all</option>`;
+        status.textContent = `${state.all.length} scenario JSON files found (${sourceLabel})`;
+        renderScenarioList();
     }
-
-    renderScenarioList();
 
     function renderScenarioList() {
         const query = state.query;
@@ -299,8 +389,8 @@ async function showScenarioEntryPage(initialType) {
                 <button class="scenario-card${style.charId ? ' has-idol-color' : ''}" style="--card-delay: ${Math.min(index, 18) * 24}ms; --idol-color: ${style.color}; --idol-color-soft: ${hexToRgba(style.color, 0.16)}; --idol-color-fill: ${hexToRgba(style.color, 0.28)}; --idol-text: ${style.textColor};" data-event-type="${escapeHtml(item.eventType)}" data-event-id="${escapeHtml(item.eventId)}" data-char-id="${escapeHtml(style.charId || '')}">
                     ${style.charId ? `
                     <span class="scenario-thumb-frame" aria-hidden="true">
-                        <img class="scenario-thumb scenario-thumb-classic" src="./assets/thumbnail/classic/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="classic" data-char-id="${style.charId}" data-ext-index="0" alt="" />
-                        <img class="scenario-thumb scenario-thumb-fes" src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0" alt="" />
+                        <img class="scenario-thumb scenario-thumb-classic" src="./assets/thumbnail/classic/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="classic" data-char-id="${style.charId}" data-ext-index="0" loading="lazy" decoding="async" alt="" />
+                        <img class="scenario-thumb scenario-thumb-fes" src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0" loading="lazy" decoding="async" alt="" />
                     </span>` : ''}
                     <span class="scenario-category">${escapeHtml(item.eventType)}</span>
                     <strong>${escapeHtml(item.eventId)}</strong>
@@ -310,7 +400,7 @@ async function showScenarioEntryPage(initialType) {
             : `<div class="entry-empty">No scenarios match the current filters.</div>`;
 
         grid.querySelectorAll('.scenario-card').forEach((card) => {
-            card.addEventListener('click', () => openScenario(card.dataset.eventType, card.dataset.eventId));
+            card.addEventListener('click', () => openScenario(card.dataset.eventType, card.dataset.eventId, languageSelect.value));
             card.querySelectorAll('.scenario-thumb').forEach((thumb) => bindThumbnailFallback(card, thumb));
         });
 
@@ -393,10 +483,11 @@ function readableTextColor(hex) {
     return luminance > 0.68 ? '#33485a' : '#ffffff';
 }
 
-async function scanScenarioIndex() {
+async function scanScenarioIndex(onProgress) {
     const categories = await listDirectory(`${ASSET_PATH}/json/`, 'directories');
     const items = [];
-    await Promise.all(categories.map(async (category) => {
+    let done = 0;
+    await runWithConcurrency(categories, 4, async (category) => {
         const files = await listDirectory(`${ASSET_PATH}/json/${encodeURIComponent(category)}/`, 'json');
         files.forEach((file) => {
             const eventId = file.replace(/\.json$/i, '');
@@ -406,8 +497,45 @@ async function scanScenarioIndex() {
                 path: `${category}/${file}`,
             });
         });
-    }));
+        done++;
+        if (onProgress) onProgress(done, categories.length);
+        await yieldToBrowser();
+    });
     return items.sort((a, b) => a.eventType.localeCompare(b.eventType) || a.eventId.localeCompare(b.eventId));
+}
+
+async function runWithConcurrency(items, limit, worker) {
+    let next = 0;
+    const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) {
+            const item = items[next++];
+            await worker(item);
+        }
+    });
+    await Promise.all(runners);
+}
+
+function yieldToBrowser() {
+    return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+function readScenarioIndexCache() {
+    try {
+        const raw = sessionStorage.getItem(SCENARIO_INDEX_CACHE_KEY) || localStorage.getItem(SCENARIO_INDEX_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.items) || !parsed.savedAt) return null;
+        if (Date.now() - parsed.savedAt > SCENARIO_INDEX_CACHE_TTL) return null;
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function writeScenarioIndexCache(items) {
+    const payload = JSON.stringify({ savedAt: Date.now(), items });
+    try { sessionStorage.setItem(SCENARIO_INDEX_CACHE_KEY, payload); } catch (_) {}
+    try { localStorage.setItem(SCENARIO_INDEX_CACHE_KEY, payload); } catch (_) {}
 }
 
 async function listDirectory(url, mode) {
@@ -426,10 +554,16 @@ async function listDirectory(url, mode) {
         });
 }
 
-function openScenario(eventType, eventId) {
+function openScenario(eventType, eventId, language) {
     const params = new URLSearchParams(window.location.search);
     params.set('eventType', eventType);
     params.set('eventId', eventId);
+    const lang = normalizeScenarioLanguage(language);
+    if (lang) {
+        params.set('language', lang);
+    } else {
+        params.delete('language');
+    }
     window.location.search = params.toString();
 }
 

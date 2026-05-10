@@ -330,12 +330,11 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
 
     _ensureTextObj() {
         if (this._textObj) return;
-        // enza dialogue style: family HummingStd-E, size 22, fill 0x555555,
-        // wordWrap true, wordWrapWidth 661, breakWords true. No explicit
-        // lineHeight is intentionally tighter than fontSize for the local font files.
+        // enza dialogue style: family HummingStd-E, size 22, lineHeight 30,
+        // wordWrap true, wordWrapWidth 661, breakWords true.
         this._textObj = new PIXI.Text('', {
             fontFamily: USED_FONT, fontSize: this._fontSize, fill: 0x555555,
-            align: 'left', lineHeight: this._fontSize - 5.5,
+            align: 'left', lineHeight: 30,
             wordWrap: true, wordWrapWidth: 661, breakWords: true,
         });
         this._textObj.position.set(this._textPos.x, this._textPos.y);
@@ -344,6 +343,6 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
 
     _setBodyLineHeight() {
         if (!this._textObj) return;
-        this._textObj.style.lineHeight = this._fontSize - 5.5;
+        this._textObj.style.lineHeight = 30;
     }
 }

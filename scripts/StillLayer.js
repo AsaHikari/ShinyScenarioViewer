@@ -22,6 +22,10 @@ class StillLayer {
             this._fadeOut();
             return;
         }
+        if (/^\d+$/.test(String(name))) {
+            this._fadeOut(Number(name));
+            return;
+        }
         const res = this._loader.resources[name];
         if (!res || !res.texture) { console.warn(`[StillLayer] missing: ${name}`); return; }
 
@@ -59,11 +63,11 @@ class StillLayer {
         this._current = next;
     }
 
-    _fadeOut() {
+    _fadeOut(durationMs = 500) {
         if (!this._current) return;
         const old = this._current;
         this._current = null;
-        TweenMax.to(old, 0.5, {
+        TweenMax.to(old, (durationMs || 500) / 1000, {
             alpha: 0,
             ease: Power1.easeOut,
             onComplete: () => {

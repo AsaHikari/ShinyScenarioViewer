@@ -24,8 +24,6 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 
 ![缩略图入口页面](./003.png)
 
-![剧情日志](./004.png)
-
 ![点击羽毛特效](./feather.png)
 
 ### 目录结构
@@ -89,6 +87,8 @@ assets/
 http://127.0.0.1:8000/
 ```
 
+![剧情日志](./004.png)
+
 带参数打开时，会直接播放指定剧情：
 
 ```text
@@ -96,6 +96,49 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001
 ```
 
 如果省略 `eventType`，默认使用 `produce_events`。
+
+### language URL 参数
+
+播放器支持通过 URL query 参数切换显示语言。
+
+相比于 enza 可以识别并选择性播放 JSON 文件中的 text_cn，select_cn 等新字段。
+
+当前约定：
+
+- `language=cn`：优先使用 `text_cn` / `select_cn`
+- `language=en`：预留给 `text_en` / `select_en`
+- 不传 `language`：使用原始 `text` / `select`（日文）
+
+示例：
+
+```JSON
+  {
+    "speaker": "プロデューサー",
+    "text": "（ふぅ、あと少しだ……\r\nなんとか今日中に終わればいいんだけど……）",
+    "textCtrl": "p",
+    "textFrame": "002",
+    "text_cn": "（呼，还差一点……\r\n希望能赶在今天之内完成……）",
+    "text_en": "(Phew, just a little more...\r\nI hope I can finish it today somehow...)"
+  },
+  ```
+  如果传入 `language` 的参数是 `cn`，那么优先选择播放 `text_cn`
+
+```text
+http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=cn
+```
+
+```text
+http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=en
+```
+
+你也可以在可视化入口处切换语言
+
+[SwitchLanguage](./SwitchLanguage.png)
+补充说明：
+
+- 如果指定了 `language=cn`，但剧情 JSON 中没有 `text_cn` 或 `select_cn`，会自动回退到原始 `text` / `select`。
+- `language=cn` 或者 `language=en` 下会默认切换到中文字体配置（当前项目内对应 `Yuanti`）。
+- 对话日志界面的人物小头头像，是根据 `speaker` 来决定的，只有日文适配，非必要不建议翻译 `speaker`
 
 ### 可选缩略图
 
@@ -122,6 +165,7 @@ assets/thumbnail/fes/028.jpg
 ```
 
 `classic` 图片默认显示；如果存在对应 `fes` 图片，鼠标悬停时会淡入显示。
+
 
 ### 本地运行
 
@@ -242,6 +286,46 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001
 ```
 
 If `eventType` is omitted, `produce_events` is used by default.
+
+### `language` URL parameter
+
+The player supports switching display language through a URL query parameter.
+
+Current behavior:
+
+- `language=cn`: prefers `text_cn` / `select_cn`
+- `language=en`: reserved for `text_en` / `select_en`
+- no `language` parameter: uses the original `text` / `select` fields (Japanese)
+
+Examples:
+
+```
+  {
+    "speaker": "プロデューサー",
+    "text": "（ふぅ、あと少しだ……\r\nなんとか今日中に終わればいいんだけど……）",
+    "textCtrl": "p",
+    "textFrame": "002",
+    "text_cn": "（呼，还差一点……\r\n希望能赶在今天之内完成……）",
+    "text_en": "(Phew, just a little more...\r\nI hope I can finish it today somehow...)"
+  },
+  ```
+If `language = en` , ScenarioViewer will pick `text_en` and play automatically.
+
+```text
+http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=cn
+```
+
+```text
+http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=en
+```
+
+![Chinese Screenshot](./Chinese.png)
+![English Screenshot](./English.png)
+Notes:
+
+- If `language=cn` is provided but the scenario JSON does not contain `text_cn` or `select_cn`, the player automatically falls back to the original `text` / `select`.
+- Under `language=cn` or `language=en`, the player also switches to the Preset font configuration (`Yuanti` in the current project setup).
+- The Character circle icon shown in log window is defined and decided by the `speaker`. So I recommend not to change it if necessary.
 
 ### Optional thumbnails
 

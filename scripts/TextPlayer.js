@@ -39,7 +39,7 @@ class TextPlayer extends PIXI.utils.EventEmitter {
 
     play(text, doClear = true) {
         if (doClear) this.clear();
-        this._content += (text || '');
+        this._content += this._normalizeLineBreaks(text || '');
         this._playing = true;
     }
 
@@ -52,6 +52,10 @@ class TextPlayer extends PIXI.utils.EventEmitter {
 
     addLineBreak() {
         this._content += '\n';
+    }
+
+    _normalizeLineBreaks(text) {
+        return String(text).replace(/\r\n|\r/g, '\n');
     }
 
     showAll() {

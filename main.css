@@ -212,7 +212,8 @@ canvas {
 
 .manual-input,
 .scenario-search,
-.category-select {
+.category-select,
+.language-select {
     min-height: 38px;
     border: 1px solid var(--entry-border);
     border-radius: 8px;
@@ -432,7 +433,8 @@ canvas {
 
 .manual-input:focus,
 .scenario-search:focus,
-.category-select:focus {
+.category-select:focus,
+.language-select:focus {
     outline: none;
     border-color: rgba(88, 188, 232, 0.66);
     box-shadow: 0 0 0 4px rgba(88, 188, 232, 0.18), inset 0 1px 3px rgba(78, 151, 190, 0.08);
@@ -521,4 +523,8 @@ canvas {
 @font-face {
     font-family: 'HummingStd-E-2';
     src: url('./assets/fonts/primula-HummingStd-E-2.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'Yuanti';
+    src: url('./assets/fonts/yuanti.woff2') format('woff2');
 }

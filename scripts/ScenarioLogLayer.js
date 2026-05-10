@@ -59,19 +59,20 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
 
     stackTrack(track) {
         if (!track) return;
-        if (!track.text && !track.select) return;
+        const text = this._normalizeLineBreaks(track.text || '');
+        if (!text && !track.select) return;
         if (track.textFrame === 'off') return;
         const prev = this._tracks[this._tracks.length - 1];
-        if (prev && track.text && !track.isSelectedItem) {
+        if (prev && text && !track.isSelectedItem) {
             if (prev.textCtrl === 'r' || prev.textCtrl === 'l') {
-                prev.text = `${prev.text || ''}\n${track.text || ''}`;
+                prev.text = `${prev.text || ''}\n${text}`;
                 prev.textCtrl = track.textCtrl;
                 if (track.logTextFrame) prev.logTextFrame = track.logTextFrame;
                 if (track.voice) prev.voice = track.voice;
                 return;
             }
             if (prev.textCtrl === 'n') {
-                prev.text = `${prev.text || ''}${track.text || ''}`;
+                prev.text = `${prev.text || ''}${text}`;
                 prev.textCtrl = track.textCtrl;
                 if (track.logTextFrame) prev.logTextFrame = track.logTextFrame;
                 if (track.voice) prev.voice = track.voice;
@@ -81,13 +82,17 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
         // Snapshot only the fields the log layer needs (avoids holding refs)
         this._tracks.push({
             speaker:       track.speaker,
-            text:          track.text,
+            text,
             speakerIcon:   track.speakerIcon,
             logTextFrame:  track.logTextFrame,
             voice:         track.voice,
             isSelectedItem: !!track.isSelectedItem,
             textCtrl:      track.textCtrl,
         });
+    }
+
+    _normalizeLineBreaks(text) {
+        return String(text).replace(/\r\n|\r/g, '\n');
     }
 
     open() {
@@ -339,7 +344,6 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
             wordWrap:   true,
             wordWrapWidth: bodyW,
             breakWords: true,
-            lineHeight: LOG_TEXT_FONTSIZE - 6.5,
         });
         body.position.set(149, 44);
         entry.addChild(body);
@@ -378,7 +382,7 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
         const entry = new PIXI.Container();
         const tex = this._getTex(e.logTextFrame);
         const frame = this._makeFrame(tex);
-        frame.position.set(0, 0); 
+        frame.position.set(0, 0);
         entry.addChild(frame);
 
         const body = new PIXI.Text(e.text || '', {
@@ -388,7 +392,6 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
             wordWrap:   true,
             wordWrapWidth: e.voice ? 744 - 32 - 32 - 52 : 744 - 32 - 32,
             breakWords: true,
-            lineHeight: LOG_TEXT_FONTSIZE - 6.5,
         });
         body.position.set(32, 16);
         entry.addChild(body);

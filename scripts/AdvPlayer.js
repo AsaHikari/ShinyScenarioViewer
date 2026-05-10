@@ -437,6 +437,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
             charLipAnim, charEffect,
             effectLabel, effectTarget, effectValue,
             waitType, waitTime, autoWaitTime,
+            command, commandKey,
         } = e;
 
         const Q = [];
@@ -468,8 +469,10 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
                 ? this._currentVoice.duration : undefined;   // already seconds
         }
 
+        const commandJumped = this._handleCommand(command, commandKey, nextLabel);
+
         // nextLabel (only when select is NOT present)
-        if (nextLabel !== undefined && !select) {
+        if (!commandJumped && nextLabel !== undefined && !select && command !== 'conditional_jump') {
             this._trackManager.nextLabel = nextLabel;
         }
 
@@ -562,6 +565,30 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
 
     _onEndTrack() {
         if (this._isFree()) this._forward();
+    }
+
+    _handleCommand(command, commandKey, nextLabel) {
+        if (command !== 'conditional_jump' || !commandKey || nextLabel === undefined) return false;
+        const storageKey = this._commandStorageKey(commandKey);
+        let wasRead = false;
+        try {
+            wasRead = window.localStorage.getItem(storageKey) === '1';
+            window.localStorage.setItem(storageKey, '1');
+        } catch (_) {
+            wasRead = false;
+        }
+        if (wasRead) {
+            this._trackManager.nextLabel = nextLabel;
+            return true;
+        }
+        return false;
+    }
+
+    _commandStorageKey(commandKey) {
+        const params = new URLSearchParams(window.location.search || '');
+        const eventType = params.get('eventType') || 'unknown';
+        const eventId = params.get('eventId') || 'unknown';
+        return `shinymaster.scenario.command.${eventType}.${eventId}.${commandKey}`;
     }
 
     _handleWaitEnd() {
