@@ -2,8 +2,6 @@
 
 const DEFAULT_ENTRY_COLOR = '#bfe9ff';
 const THUMBNAIL_CACHE_BUSTER = 'thumb-v1';
-const SCENARIO_INDEX_CACHE_KEY = 'shinymaster.scenario.index.v2';
-const SCENARIO_INDEX_CACHE_TTL = 10 * 60 * 1000;
 const IDOL_COLORS = {
     '001': '#ffbad6',
     '002': '#144384',
@@ -69,7 +67,7 @@ async function startScenarioPlayer(eventType, eventId, language) {
     } catch (_) { console.warn('[main] font load timed out'); }
 
     // Load scenario JSON
-    const jsonUrl = `${ASSET_PATH}/json/${eventType}/${eventId}.json`;
+    const jsonUrl = withNoCache(`${ASSET_PATH}/json/${eventType}/${eventId}.json`);
     PIXI.Loader.shared.add('scenarioJson', jsonUrl);
     await new Promise(r => PIXI.Loader.shared.load(r));
 
@@ -334,16 +332,10 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
     async function loadIndex({ force }) {
         refreshIndex.disabled = true;
         try {
-            const cached = !force ? readScenarioIndexCache() : null;
-            if (cached) {
-                applyScenarioIndex(cached.items, `cached ${Math.round((Date.now() - cached.savedAt) / 1000)}s ago`);
-                return;
-            }
             status.textContent = 'Scanning JSON folders...';
             const items = await scanScenarioIndex((done, total) => {
                 status.textContent = `Scanning JSON folders... ${done}/${total}`;
             });
-            writeScenarioIndexCache(items);
             applyScenarioIndex(items, 'fresh');
         } catch (err) {
             console.error('[entry] scan failed', err);
@@ -519,27 +511,8 @@ function yieldToBrowser() {
     return new Promise(resolve => setTimeout(resolve, 0));
 }
 
-function readScenarioIndexCache() {
-    try {
-        const raw = sessionStorage.getItem(SCENARIO_INDEX_CACHE_KEY) || localStorage.getItem(SCENARIO_INDEX_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.items) || !parsed.savedAt) return null;
-        if (Date.now() - parsed.savedAt > SCENARIO_INDEX_CACHE_TTL) return null;
-        return parsed;
-    } catch (_) {
-        return null;
-    }
-}
-
-function writeScenarioIndexCache(items) {
-    const payload = JSON.stringify({ savedAt: Date.now(), items });
-    try { sessionStorage.setItem(SCENARIO_INDEX_CACHE_KEY, payload); } catch (_) {}
-    try { localStorage.setItem(SCENARIO_INDEX_CACHE_KEY, payload); } catch (_) {}
-}
-
 async function listDirectory(url, mode) {
-    const res = await fetch(url);
+    const res = await fetch(withNoCache(url), { cache: 'no-store' });
     if (!res.ok) throw new Error(`Failed to list ${url}: ${res.status}`);
     const html = await res.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -552,6 +525,11 @@ async function listDirectory(url, mode) {
             if (mode === 'directories') return !name.includes('.');
             return /\.json$/i.test(name);
         });
+}
+
+function withNoCache(url) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}_=${Date.now()}`;
 }
 
 function openScenario(eventType, eventId, language) {
