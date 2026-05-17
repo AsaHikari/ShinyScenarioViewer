@@ -326,7 +326,7 @@ class ScenarioLogLayer extends PIXI.utils.EventEmitter {
 
         // Speaker name (entry-local 119, 12 baseline at vertical centre)
         const speakerStyle = {
-            fontFamily: USED_FONT, fontSize: LOG_TEXT_FONTSIZE, fill: LOG_TEXT_FILL,
+            fontFamily: USED_FONT_SPEAKER, fontSize: LOG_TEXT_FONTSIZE, fill: LOG_TEXT_FILL,
         };
         if (e.speaker) {
             const sp = new PIXI.Text(e.speaker, speakerStyle);

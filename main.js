@@ -189,6 +189,7 @@ function loadScenarioFonts(language) {
     if (language === 'cn') {
         return Promise.all([
             new FontFaceObserver('Yuanti').load('中文测试真乃約束', FONT_TIMEOUT),
+            new FontFaceObserver(USED_FONT_PRIMARY).load('あいう真乃約束', FONT_TIMEOUT),
             new FontFaceObserver(USED_FONT_SECONDARY).load('あいう真乃約束', FONT_TIMEOUT),
         ]);
     }

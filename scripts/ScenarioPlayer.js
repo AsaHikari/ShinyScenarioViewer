@@ -322,7 +322,7 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
         // 'bold' forces the browser to synthesise / fall back, which causes
         // Japanese chars to render with a different (default) typeface).
         this._speakerObj = new PIXI.Text('', {
-            fontFamily: USED_FONT, fontSize: this._fontSize + 2, fill: 0x555555,
+            fontFamily: USED_FONT_SPEAKER, fontSize: this._fontSize + 2, fill: 0x555555,
         });
         this._speakerObj.position.set(this._speakerPos.x, this._speakerPos.y);
         this._container.addChild(this._speakerObj);

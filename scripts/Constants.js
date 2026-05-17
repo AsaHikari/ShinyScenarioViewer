@@ -9,6 +9,7 @@ const USED_FONT_PRIMARY = 'HummingStd-E-1';
 const USED_FONT_SECONDARY = 'HummingStd-E-2';
 const USED_FONT      = [USED_FONT_PRIMARY, USED_FONT_SECONDARY];
 const USED_FONT_UI   = USED_FONT;
+const USED_FONT_SPEAKER = [USED_FONT_PRIMARY, USED_FONT_SECONDARY];
 const FONT_TIMEOUT   = 3000;
 
 // Log entry text style — exact enza values from Je/Qe layout templates
