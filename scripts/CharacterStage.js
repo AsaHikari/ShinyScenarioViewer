@@ -264,12 +264,15 @@ class CharacterStage {
                 tweens: [],
                 done: false,
                 fadeState: null,
+                layer,
                 finish: () => {
                     if (record.done) return;
                     record.done = true;
                     if (record.fadeState) {
                         this._endFade(record.fadeState);
                         record.fadeState = null;
+                    } else if (record.layer._characterFadeRecord === record) {
+                        record.layer._characterFadeRecord = null;
                     }
                     this._activeEffects.delete(record);
                     resolve();
@@ -280,11 +283,25 @@ class CharacterStage {
                 if (tween) record.tweens.push(tween);
                 return tween;
             };
+            const replaceLayerFade = () => {
+                if (layer._characterFadeRecord && layer._characterFadeRecord !== record) {
+                    layer._characterFadeRecord.tweens.forEach(tween => {
+                        if (tween && typeof tween.kill === 'function') tween.kill();
+                    });
+                    layer._characterFadeRecord.finish();
+                }
+                layer._characterFadeRecord = record;
+            };
             const useGsap = typeof gsap !== 'undefined' && tweener === gsap;
             const ease = this._resolveEase(effect.easing ?? effect.ease, useGsap);
             const tweenJobs = [];
 
+            if (effect.alpha !== undefined) replaceLayerFade();
             record.fadeState = effect.alpha !== undefined ? this._beginFade(layer) : null;
+            if (record.fadeState) {
+                record.fadeState.layer = layer;
+                record.fadeState.record = record;
+            }
             if (effect.alpha !== undefined) {
                 const alphaProps = this._buildScalarProps(layer, 'alpha', effect.alpha, effect.type, ease);
                 tweenJobs.push({ target: layer, props: alphaProps });
@@ -345,9 +362,13 @@ class CharacterStage {
     }
 
     _endFade(state) {
-        if (!state) return;
+        if (!state || state.ended) return;
+        state.ended = true;
         state.spine.visible = state.visible;
         state.spine.autoUpdate = state.autoUpdate;
+        if (state.layer && state.layer._characterFadeRecord === state.record) {
+            state.layer._characterFadeRecord = null;
+        }
         state.sprite.destroy({ children: true });
         if (state.texture && typeof state.texture.destroy === 'function') state.texture.destroy(true);
     }
