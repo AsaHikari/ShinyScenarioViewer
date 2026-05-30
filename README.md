@@ -40,12 +40,12 @@ const SCENARIO_META = {
 
 | catIcon | 图标 | 含义 |
 |---|---|---|
-| `"idol"` | `event_type_idol.png` | アイドルイベント（角色事件） |
-| `"support"` | `event_type_support.png` | サポートイベント（支援角色事件） |
-| `"produce"` | `event_type_produce.png` | プロデュースイベント（培育事件） |
-| `"after"` | `event_type_true_end.png` | アフターストーリー（后日谈/True End） |
+| `"idol"` | `event_type_idol.png` | アイドルイベント |
+| `"support"` | `event_type_support.png` | サポートイベント |
+| `"produce"` | `event_type_produce.png` | プロデュースイベント |
+| `"after"` | `event_type_true_end.png` | アフターストーリー（True End） |
 
-![popupIdol](.\popup_idol.png)
+![popupIdol](./popup_idol.png)
 
 可以自由修改，如下所示：
 ```JS
@@ -59,7 +59,7 @@ const SCENARIO_META = {
     // ...
 };
 ```
-![TE](.\popup_te.png)
+![TE](./popup_te.png)
 
 如果某个场景没有在对照表中注册，弹窗会自动跳过，不影响正常播放。
 
@@ -91,7 +91,7 @@ const SCENARIO_META = {
 | `F3` | 隐藏 Spine 角色 |
 | `F4` | 隐藏对话框和控制按钮 |
 
-![F1](.\GreenScreen.png)
+![F1](./GreenScreen.png)
 
 ### 截图
 
@@ -314,10 +314,10 @@ const SCENARIO_META = {
 
 | catIcon | Texture | Meaning |
 |---|---|---|
-| `"idol"` | `event_type_idol.png` | Idol event (character event) |
+| `"idol"` | `event_type_idol.png` | Idol event |
 | `"support"` | `event_type_support.png` | Support idol event |
 | `"produce"` | `event_type_produce.png` | Produce event |
-| `"after"` | `event_type_true_end.png` | After story / True End |
+| `"after"` | `event_type_true_end.png` | True End |
 
 ![popupIdol](./popup_idol.png)
 
