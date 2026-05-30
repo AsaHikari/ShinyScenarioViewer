@@ -30,6 +30,7 @@ class EnzaChangeLayer {
         }
         if (imageName === 'off') {
             this._container.visible = false;
+            this._main.texture = PIXI.Texture.EMPTY;
             return Promise.resolve();
         }
         if (imageName === 'fade_out') {
