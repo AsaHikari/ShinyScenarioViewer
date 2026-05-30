@@ -207,6 +207,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
             done = true;
             this._currentVoiceKeepActive = false;
             this._currentVoiceEndHandler = null;
+            this._scenarioPlayer.controlVoicePlayingAnimation(null);
         };
         voice.once('end', onEnd);
         voice.once('ended', onEnd);

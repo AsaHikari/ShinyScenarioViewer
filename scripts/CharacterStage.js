@@ -81,10 +81,10 @@ class CharacterStage {
         // decoded files, so don't use it as a fallback while a voice object exists.
         if (lipAnim) {
             this._setOverlayAnim(lipAnim, true, 5, spine);
-            const stop = () => this.stopLipAnimation(label);
+            const stopAll = () => this.stopLipAnimations();
             if (voiceObj && typeof voiceObj.once === 'function') {
                 let stopped = false;
-                const safeStop = () => { if (stopped) return; stopped = true; stop(); };
+                const safeStop = () => { if (stopped) return; stopped = true; stopAll(); };
                 voiceObj.once('end', safeStop);
                 voiceObj.once('ended', safeStop);
             } else if (lipAnimDuration) {

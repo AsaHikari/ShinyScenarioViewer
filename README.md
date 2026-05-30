@@ -319,7 +319,7 @@ const SCENARIO_META = {
 | `"produce"` | `event_type_produce.png` | Produce event |
 | `"after"` | `event_type_true_end.png` | After story / True End |
 
-![popupIdol](.\popup_idol.png)
+![popupIdol](./popup_idol.png)
 
 You can customize the popup freely, for example changing the category icon:
 
@@ -334,7 +334,7 @@ const SCENARIO_META = {
 };
 ```
 
-![TE](.\popup_te.png)
+![TE](./popup_te.png)
 
 If a scenario has no entry in the lookup table, the popup is skipped silently.
 
@@ -366,7 +366,7 @@ Global hotkeys (always available):
 | `F3` | Hide all Spine characters |
 | `F4` | Hide dialogue box + control buttons |
 
-![F1](.\GreenScreen.png)
+![F1](./GreenScreen.png)
 
 ### Screenshots
 
