@@ -18,9 +18,15 @@ class Schedule {
     }
 
     completeAll() {
-        const events = this._events.slice();
-        this._events.length = 0;
-        events.forEach(e => { try { e.fn(); } catch (_) {} });
+        while (this._events.length > 0) {
+            const event = this._events.shift();
+            try {
+                event.fn();
+            } catch (err) {
+                console.error('[Schedule] callback failed', err);
+                throw err;
+            }
+        }
     }
 
     update(deltaTicks) {
@@ -32,7 +38,14 @@ class Schedule {
             if (e.remaining <= 0) { ready.push(e); return false; }
             return true;
         });
-        ready.forEach(e => { try { e.fn(); } catch (_) {} });
+        ready.forEach(e => {
+            try {
+                e.fn();
+            } catch (err) {
+                console.error('[Schedule] callback failed', err);
+                throw err;
+            }
+        });
     }
 
     destroy() {

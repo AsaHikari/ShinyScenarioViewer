@@ -13,8 +13,8 @@ class TextPlayer extends PIXI.utils.EventEmitter {
         this._index     = 0;
         this._playing   = false;
         this._elapsedMs = 0;
-        this._baseIntervalMs = 80;
-        this._charIntervalMs = this._baseIntervalMs;   // ms per char (default ~20 cps)
+        this._baseIntervalMs = 100;   // enza textSpeed=1 → floor(elapsedMs/100*1) → 10 cps
+        this._charIntervalMs = this._baseIntervalMs;
         this._speed     = 100;
         this.speed      = opts.speed != null ? opts.speed : 100;
     }

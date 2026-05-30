@@ -1,6 +1,7 @@
 'use strict';
 
-// Asset roots local to this ShinyScenarioViewer shell.
+// Unified local asset root. ScenarioViewer is served from C:\ShinyM@ster,
+// so playback resources are resolved from the sibling assets directory.
 const ASSET_PATH      = './assets';
 const DOWNLOADS_PATH  = './assets';
 
@@ -82,6 +83,7 @@ const ASSET_FORMAT = {
 
 // Character (per-id+category) URL templates
 // speakerIcon uses downloads/images/content/{type}/icon_circle_l/{id}.png (180×180)
+// type is 'characters' or 'sub_characters' from speaker lookup
 // logTextFrame uses downloads/images/event/log_text_frame/{id}.png (744×82)
 const CHARACTER_ASSET_FORMAT = {
     spine:        `${ASSET_PATH}/spine/\${type}/\${category}/\${id}/data.json`,
@@ -98,7 +100,7 @@ const SELECT_FRAME_URL = (n) =>
     `${ASSET_PATH}/images/event/select_frame/${String(n).padStart(3, '0')}.png`;
 
 // UI spritesheet (Z=top buttons)
-const UI_PARTS_URL  = `${ASSET_PATH}/images/ui/parts_event.json`;
+const UI_PARTS_URL  = `${ASSET_PATH}/images/ui/produce_event/parts_event.json`;
 const UI_COMMON_PARTS_URL = `${DOWNLOADS_PATH}/images/ui/start_and_common/parts.json`;
 const UI_COMMON_ATLAS_URL = `${DOWNLOADS_PATH}/images/ui/common/parts.json`;
 
@@ -156,3 +158,4 @@ const PRODUCER_SPEAKERS = new Set(['プロデューサー', 'Producer', 'produce
 // Fallback icon when no match: sub_characters/801
 const DEFAULT_SPEAKER_ICON_ID   = '801';
 const DEFAULT_SPEAKER_ICON_TYPE = 'sub_characters';
+

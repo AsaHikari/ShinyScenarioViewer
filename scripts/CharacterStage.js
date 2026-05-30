@@ -297,7 +297,18 @@ class CharacterStage {
             const tweenJobs = [];
 
             if (effect.alpha !== undefined) replaceLayerFade();
+            // For "from" alpha effects, the layer may be at alpha 0 from a
+            // previous fade-out. Temporarily restore full opacity so the
+            // snapshot texture captures a visible character.
+            let savedAlpha;
+            if (effect.type === 'from' && effect.alpha !== undefined) {
+                savedAlpha = layer.alpha;
+                layer.alpha = 1;
+            }
             record.fadeState = effect.alpha !== undefined ? this._beginFade(layer) : null;
+            if (savedAlpha !== undefined) {
+                layer.alpha = savedAlpha;
+            }
             if (record.fadeState) {
                 record.fadeState.layer = layer;
                 record.fadeState.record = record;
@@ -375,7 +386,17 @@ class CharacterStage {
 
     _buildScalarProps(target, key, value, type, ease) {
         const props = { [key]: value, ease };
-        if (type === 'from') [target[key], props[key]] = [props[key], target[key]];
+        if (type === 'from') {
+            if (key === 'alpha') {
+                // Alpha "from" always animates toward fully visible (1),
+                // regardless of the layer's current alpha (which may be 0
+                // from a previous fade-out).
+                target[key] = value;
+                props[key] = 1;
+            } else {
+                [target[key], props[key]] = [props[key], target[key]];
+            }
+        }
         return props;
     }
 

@@ -8,6 +8,8 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 
 本仓库只包含播放器源码和资源路径约定，不包含游戏资源或剧情数据。运行前需要自行准备 `assets/` 下的资源文件。
 
+> **免责声明**：本项目仅供学习、研究和个人使用。『アイドルマスター シャイニーカラーズ』相关内容和资源版权归 株式会社バンダイナムコエンターテインメント 所有。使用者应自行确保对相关游戏资源的访问和使用符合适用的法律及服务条款。开发者不提供任何游戏资源，也不对使用者的行为承担责任。
+
 ### 功能
 
 - 播放本地准备的剧情 JSON。
@@ -15,6 +17,81 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 - 没有指定 `eventId` 时，会显示自制的可视化剧情入口页。
 - 支持在日志界面重放语音。
 - 支持为 `produce_events` 入口卡片配置可选缩略图。
+- **章节标题弹窗**：进入剧情时左上角弹出卡图+章节名
+- 内置 Debug 面板，方便开发调试（按 ` 键呼出/隐藏）。
+
+### 章节标题弹窗
+
+进入剧情时，左上角会弹出章节标题卡片，显示卡图头像和章节名称。弹窗会自动滑入、停留约 2.5 秒后淡出消失。
+
+弹窗的元数据配置在 `scripts/ScenarioMetaIndex.js` 中，格式为：
+
+```js
+const SCENARIO_META = {
+    "produce_events/200100901": {                  //对应当前事件
+        cardId: "1040010040",                            //对应左侧小图id
+        name:   "秋香る",                                   //对应章节名称
+        catIcon: "idol",                            //对应上方图标
+    },
+    // ...
+};
+```
+`catIcon` 对应弹窗中的事件分类图标，来源为 `eventCategoryName`：
+
+| catIcon | 图标 | 含义 |
+|---|---|---|
+| `"idol"` | `event_type_idol.png` | アイドルイベント（角色事件） |
+| `"support"` | `event_type_support.png` | サポートイベント（支援角色事件） |
+| `"produce"` | `event_type_produce.png` | プロデュースイベント（培育事件） |
+| `"after"` | `event_type_true_end.png` | アフターストーリー（后日谈/True End） |
+
+![popupIdol](.\popup_idol.png)
+
+可以自由修改，如下所示：
+```JS
+
+const SCENARIO_META = {
+    "produce_events/200100901": {
+        cardId: "1040010040",
+        name:   "秋香る",
+        catIcon: "after",
+    },
+    // ...
+};
+```
+![TE](.\popup_te.png)
+
+如果某个场景没有在对照表中注册，弹窗会自动跳过，不影响正常播放。
+
+
+### Debug 面板（不稳定）
+
+播放器内置了 Debug 面板，按 `` ` `` 键（反引号）呼出/隐藏。面板在右上角显示：
+
+- 播放状态（FREE / PLAY / WAIT / LOCK）和速度模式
+- 当前 Track 序号 / 总数
+- 文字速度 / 等待时间 / 效果速度
+- 语音播放状态
+
+面板打开时的快捷键：
+
+| 按键 | 功能 |
+|---|---|
+| `←` `→` | 调整文字速度 |
+| `↑` `↓` | 调整等待时间 |
+| `Space` | 跳过当前 Track |
+| `S` | 循环切换速度模式 |
+
+全局快捷键（无需打开面板）：
+
+| 按键 | 功能 |
+|---|---|
+| `F1` | 重置所有视觉开关 |
+| `F2` | 绿幕叠加（抠像合成用） |
+| `F3` | 隐藏 Spine 角色 |
+| `F4` | 隐藏对话框和控制按钮 |
+
+![F1](.\GreenScreen.png)
 
 ### 截图
 
@@ -101,7 +178,7 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001
 
 播放器支持通过 URL query 参数切换显示语言。
 
-相比于 enza 可以识别并选择性播放 JSON 文件中的 text_cn，select_cn 等新字段。
+可以识别并选择性播放 JSON 文件中的 text_cn，select_cn 等新字段。
 
 当前约定：
 
@@ -122,6 +199,10 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001
   },
   ```
   如果传入 `language` 的参数是 `cn`，那么优先选择播放 `text_cn`
+
+![Chinese Screenshot](./Chinese.png)
+![English Screenshot](./English.png)
+
 
 ```text
 http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=cn
@@ -199,6 +280,8 @@ ShinyScenarioViewer is a static web-based ADV scenario player based on the front
 
 This repository only contains the player source code and asset path conventions. Game assets and scenario data are not included. You must prepare the required files under `assets/` yourself.
 
+> **Disclaimer**: This project is for educational, research, and personal use only. All 『アイドルマスター シャイニーカラーズ』 content and assets are the property of Bandai Namco Entertainment Inc. Users are responsible for ensuring their access to and use of game resources complies with applicable laws and terms of service. The developer does not provide any game resources and assumes no liability for users' actions.
+
 ### Features
 
 - Plays locally prepared scenario JSON files.
@@ -206,6 +289,84 @@ This repository only contains the player source code and asset path conventions.
 - Shows a custom visual scenario entry page when no `eventId` is specified.
 - Supports voice replay from the scenario log screen.
 - Supports optional thumbnails for `produce_events` entry cards.
+- **Chapter title popup**: card icon + chapter name overlay
+- UI control panel defaults to collapsed state.
+- Built-in **Debug panel** for development (toggle with `` ` `` key).
+
+### Chapter Title Popup
+
+When entering a scenario, a chapter title card pops up in the top-left corner showing the card icon and chapter name. The popup slides in, holds for ~2.5s, then fades out.
+
+Metadata is configured in `scripts/ScenarioMetaIndex.js`:
+
+```js
+const SCENARIO_META = {
+    "produce_events/200100901": {                  // scenario key
+        cardId: "1040010040",                            // card icon ID (left side)
+        name:   "秋香る",                                   // chapter name
+        catIcon: "idol",                            // category icon (top-right)
+    },
+    // ...
+};
+```
+
+`catIcon` maps to the event category icon from `eventCategoryName`:
+
+| catIcon | Texture | Meaning |
+|---|---|---|
+| `"idol"` | `event_type_idol.png` | Idol event (character event) |
+| `"support"` | `event_type_support.png` | Support idol event |
+| `"produce"` | `event_type_produce.png` | Produce event |
+| `"after"` | `event_type_true_end.png` | After story / True End |
+
+![popupIdol](.\popup_idol.png)
+
+You can customize the popup freely, for example changing the category icon:
+
+```js
+const SCENARIO_META = {
+    "produce_events/200100901": {
+        cardId: "1040010040",
+        name:   "秋香る",
+        catIcon: "after",
+    },
+    // ...
+};
+```
+
+![TE](.\popup_te.png)
+
+If a scenario has no entry in the lookup table, the popup is skipped silently.
+
+
+### Debug Panel (unstable)
+
+Press `` ` `` (backtick) to toggle the debug overlay (top-left corner). It shows:
+
+- Playback state (FREE / PLAY / WAIT / LOCK) and speed mode
+- Current track number / total
+- Text speed / wait time / effect speed
+- Voice playback status
+
+Hotkeys while overlay is open:
+
+| Key | Action |
+|---|---|
+| `←` `→` | Adjust text speed |
+| `↑` `↓` | Adjust wait time |
+| `Space` | Skip current track |
+| `S` | Cycle speed mode |
+
+Global hotkeys (always available):
+
+| Key | Action |
+|---|---|
+| `F1` | Reset all visual toggles |
+| `F2` | Green screen overlay (for chroma-key compositing) |
+| `F3` | Hide all Spine characters |
+| `F4` | Hide dialogue box + control buttons |
+
+![F1](.\GreenScreen.png)
 
 ### Screenshots
 

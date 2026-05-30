@@ -106,6 +106,7 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
         this._ensureSpeakerObj();
         if (!speaker || speaker === 'off') {
             this._speakerObj.visible = false;
+            this._speakerObj.text = '';
             return;
         }
         this._speakerObj.visible = true;
@@ -304,9 +305,10 @@ class ScenarioPlayer extends PIXI.utils.EventEmitter {
 
         this._ensureSpeakerObj();
         this._ensureTextObj();
-        // Switching to a real frame implies the dialog box is visible again.
+        // Switching to a real frame implies the dialog box is visible again,
+        // but only show the speaker if it has text (speaker: "off" clears it).
         if (this._textObj)    this._textObj.visible    = true;
-        if (this._speakerObj) this._speakerObj.visible = true;
+        if (this._speakerObj) this._speakerObj.visible = (this._speakerObj.text !== '');
         // Make sure text/speaker stay above the frame
         if (this._speakerObj) this._container.setChildIndex(
             this._speakerObj, this._container.children.length - 1);

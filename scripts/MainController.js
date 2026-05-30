@@ -18,7 +18,7 @@ class MainController extends PIXI.utils.EventEmitter {
 
         this._isAutoOn   = false;
         this._isFastOn   = false;
-        this._isMenuOpen = true;
+        this._isMenuOpen = false;
         this._isHidden   = false;
 
         this._ui       = {};

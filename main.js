@@ -97,6 +97,10 @@ async function startScenarioPlayer(eventType, eventId, language) {
     if (!loader.resources['uiCommonAtlas']) {
         loader.add('uiCommonAtlas', UI_COMMON_ATLAS_URL);
     }
+    // Popup 9-slice white frame texture
+    if (!loader.resources['uiInitPop']) {
+        loader.add('uiInitPop', `${ASSET_PATH}/images/ui/init/parts_pop.json`);
+    }
 
     // UI tap SE (named key)
     if (!loader.resources[UI_TAP_SE_KEY]) {
@@ -146,16 +150,40 @@ async function startScenarioPlayer(eventType, eventId, language) {
 
     await new Promise(r => loader.load(r));
 
+    // ── Chapter title popup: pre-load card icon ──────────────────────────
+    const meta = getScenarioMeta(eventType, eventId);
+    let popupIconUrl = null;
+    if (meta && meta.cardId) {
+        popupIconUrl = buildCardIconUrl(meta.cardId, null);
+        if (!loader.resources[popupIconUrl]) {
+            loader.add(popupIconUrl, popupIconUrl);
+        }
+    }
+
     // ── Touch overlay → start ──────────────────────────────────────────────
     const overlay = buildTouchOverlay(app);
     app.stage.addChild(overlay);
 
-    const startGame = () => {
+    const startGame = async () => {
         app.stage.removeChild(overlay);
         overlay.destroy({ children: true });
 
+        // enza: popup goes on stage BEFORE AdvPlayer, then player starts on top of it.
+        // But popup is on a higher layer (added after) so it's visible.
+        let popup = null;
+        if (meta && meta.name) {
+            popup = showTitlePopup(app, meta);
+        }
+
         const advPlayer = new AdvPlayer(app);
         app.stage.addChild(advPlayer.stageObj);
+
+        // Re-add popup on top in case AdvPlayer covered it
+        if (popup && popup.stageObj && popup.stageObj.parent) {
+            app.stage.setChildIndex(popup.stageObj, app.stage.children.length - 1);
+        }
+
+        new DebugController(advPlayer, app);
 
         advPlayer.once('end', () => {
             console.log('[main] scenario ended');
@@ -170,6 +198,29 @@ async function startScenarioPlayer(eventType, eventId, language) {
 
     overlay.once('click',      startGame);
     overlay.once('touchstart', startGame);
+}
+
+function showTitlePopup(app, meta) {
+    const iconUrl = (meta.cardId) ? buildCardIconUrl(meta.cardId, null) : null;
+
+    const popup = new EventTitlePopup({
+        app: app,
+        cardIconUrl: iconUrl,
+        eventName: meta.name,
+        eventType: meta.catIcon || 'produce',
+    });
+    app.stage.addChild(popup.stageObj);
+
+    popup.show().then(function () {
+        try {
+            if (popup.stageObj && popup.stageObj.parent) {
+                app.stage.removeChild(popup.stageObj);
+            }
+        } catch (_) {}
+        popup.destroy();
+    });
+
+    return popup;
 }
 
 function normalizeScenarioLanguage(value) {

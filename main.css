@@ -505,26 +505,26 @@ canvas {
  */
 @font-face {
     font-family: 'UDKakugo';
-    src: url('./assets/fonts/primula-UDKakugo_SmallPr6-B-1.woff2') format('woff2');
+    src: url('../../assets/fonts/primula-UDKakugo_SmallPr6-B-1.woff2') format('woff2');
     font-weight: bold;
     /* no unicode-range → applies to all characters not covered by part 2 */
 }
 @font-face {
     font-family: 'UDKakugo';
-    src: url('./assets/fonts/primula-UDKakugo_SmallPr6-B-2.woff2') format('woff2');
+    src: url('../../assets/fonts/primula-UDKakugo_SmallPr6-B-2.woff2') format('woff2');
     font-weight: bold;
     unicode-range: U+20000-2FA1F; /* CJK Extension B/C/D + Compatibility Supplement */
 }
 
 @font-face {
     font-family: 'HummingStd-E-1';
-    src: url('./assets/fonts/primula-HummingStd-E-1.woff2') format('woff2');
+    src: url('../../assets/fonts/primula-HummingStd-E-1.woff2') format('woff2');
 }
 @font-face {
     font-family: 'HummingStd-E-2';
-    src: url('./assets/fonts/primula-HummingStd-E-2.woff2') format('woff2');
+    src: url('../../assets/fonts/primula-HummingStd-E-2.woff2') format('woff2');
 }
 @font-face {
     font-family: 'Yuanti';
-    src: url('./assets/fonts/yuanti.woff2') format('woff2');
+    src: url('../../assets/fonts/yuanti.woff2') format('woff2');
 }
