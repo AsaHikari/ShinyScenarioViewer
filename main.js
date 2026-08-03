@@ -1,39 +1,18 @@
 'use strict';
 
 const DEFAULT_ENTRY_COLOR = '#bfe9ff';
-const THUMBNAIL_CACHE_BUSTER = 'thumb-v1';
+const THUMBNAIL_CACHE_BUSTER = 'thumb-v2';
 const IDOL_COLORS = {
-    '001': '#ffbad6',
-    '002': '#144384',
-    '003': '#ffe012',
-    '004': '#f84cad',
-    '005': '#a846fb',
-    '006': '#006047',
-    '007': '#3b91c4',
-    '008': '#d9f2ff',
-    '009': '#e5461c',
-    '010': '#f93b90',
-    '011': '#ffc602',
-    '012': '#89c3eb',
-    '013': '#90e667',
-    '014': '#f54275',
-    '015': '#e75bec',
-    '016': '#fbfafa',
-    '017': '#f30100',
-    '018': '#5ce626',
-    '019': '#ff00ff',
-    '020': '#50d0d0',
-    '021': '#be1e3e',
-    '022': '#7967c3',
-    '023': '#ffc639',
-    '024': '#ccf3dc',
-    '025': '#ffdbdb',
-    '026': '#e9e3e1',
-    '027': '#e0b5d3',
-    '028': '#dcc571',
+    '001': '#ffbad6', '002': '#144384', '003': '#ffe012', '004': '#f84cad',
+    '005': '#a846fb', '006': '#006047', '007': '#3b91c4', '008': '#d9f2ff',
+    '009': '#e5461c', '010': '#f93b90', '011': '#ffc602', '012': '#89c3eb',
+    '013': '#90e667', '014': '#f54275', '015': '#e75bec', '016': '#fbfafa',
+    '017': '#f30100', '018': '#5ce626', '019': '#ff00ff', '020': '#50d0d0',
+    '021': '#be1e3e', '022': '#7967c3', '023': '#ffc639', '024': '#ccf3dc',
+    '025': '#ffdbdb', '026': '#e9e3e1', '027': '#e0b5d3', '028': '#dcc571',
 };
 
-// ─── Entry point ─────────────────────────────────────────────────────────────
+// Entry point
 async function init() {
     const params  = new URLSearchParams(window.location.search);
     let eventType = params.get('eventType') || 'produce_events';
@@ -48,6 +27,7 @@ async function init() {
     await startScenarioPlayer(eventType, eventId, language);
 }
 
+// Scenario player
 async function startScenarioPlayer(eventType, eventId, language) {
     applyScenarioLanguage(language);
     PIXI.utils.skipHello();
@@ -61,6 +41,13 @@ async function startScenarioPlayer(eventType, eventId, language) {
     document.body.appendChild(app.view);
     resizeCanvas(app);
     window.addEventListener('resize', () => resizeCanvas(app));
+
+    // Load volume config
+    let volumeConfig = {};
+    try {
+        const resp = await fetch('./config.json', { cache: 'no-cache' });
+        if (resp.ok) volumeConfig = await resp.json();
+    } catch (_) { /* use defaults */ }
 
     try {
         await loadScenarioFonts(language);
@@ -79,15 +66,14 @@ async function startScenarioPlayer(eventType, eventId, language) {
         alert('Scenario JSON empty or invalid.'); return;
     }
 
-    // ── Convert raw → URL tracks (matches enza pre-load step) ──────────────
+    // Convert raw -> URL tracks (matches enza pre-load step)
     const converter = new AdvResourceConverter();
     const tracks    = converter.convertResourcePaths(rawTracks);
     const urls      = converter.extractResourceList(tracks);
 
-    // ── Pre-load resources ─────────────────────────────────────────────────
+    // Pre-load resources
     const loader = PIXI.Loader.shared;
 
-    // UI spritesheet (named key for MainController)
     if (!loader.resources['uiParts']) {
         loader.add('uiParts', UI_PARTS_URL);
     }
@@ -97,12 +83,9 @@ async function startScenarioPlayer(eventType, eventId, language) {
     if (!loader.resources['uiCommonAtlas']) {
         loader.add('uiCommonAtlas', UI_COMMON_ATLAS_URL);
     }
-    // Popup 9-slice white frame texture
     if (!loader.resources['uiInitPop']) {
         loader.add('uiInitPop', `${ASSET_PATH}/images/ui/init/parts_pop.json`);
     }
-
-    // UI tap SE (named key)
     if (!loader.resources[UI_TAP_SE_KEY]) {
         loader.add(UI_TAP_SE_KEY, UI_TAP_SE_URL);
     }
@@ -121,13 +104,11 @@ async function startScenarioPlayer(eventType, eventId, language) {
     if (!loader.resources[TAP_EFFECT_FEATHER_CONFIG_KEY]) {
         loader.add(TAP_EFFECT_FEATHER_CONFIG_KEY, TAP_EFFECT_FEATHER_CONFIG_URL);
     }
-
-    // Producer bubble (looping beep for producer dialogue)
     if (!loader.resources[PRODUCER_BUBBLE_KEY]) {
         loader.add(PRODUCER_BUBBLE_KEY, PRODUCER_BUBBLE_URL);
     }
 
-    // Select-frame textures (1..max-selects)
+    // Select-frame textures
     let maxSelects = 0;
     let currentSelects = 0;
     tracks.forEach(t => {
@@ -143,14 +124,13 @@ async function startScenarioPlayer(eventType, eventId, language) {
         if (!loader.resources[key]) loader.add(key, SELECT_FRAME_URL(i));
     }
 
-    // Track URLs — URL itself is the loader key
     urls.forEach(u => {
         if (!loader.resources[u]) loader.add(u, u);
     });
 
     await new Promise(r => loader.load(r));
 
-    // ── Chapter title popup: pre-load card icon ──────────────────────────
+    // Chapter title popup: pre-load card icon
     const meta = getScenarioMeta(eventType, eventId);
     let popupIconUrl = null;
     if (meta && meta.cardId) {
@@ -160,7 +140,7 @@ async function startScenarioPlayer(eventType, eventId, language) {
         }
     }
 
-    // ── Touch overlay → start ──────────────────────────────────────────────
+    // Touch overlay -> start
     const overlay = buildTouchOverlay(app);
     app.stage.addChild(overlay);
 
@@ -168,17 +148,14 @@ async function startScenarioPlayer(eventType, eventId, language) {
         app.stage.removeChild(overlay);
         overlay.destroy({ children: true });
 
-        // enza: popup goes on stage BEFORE AdvPlayer, then player starts on top of it.
-        // But popup is on a higher layer (added after) so it's visible.
         let popup = null;
         if (meta && meta.name) {
             popup = showTitlePopup(app, meta);
         }
 
-        const advPlayer = new AdvPlayer(app);
+        const advPlayer = new AdvPlayer(app, volumeConfig);
         app.stage.addChild(advPlayer.stageObj);
 
-        // Re-add popup on top in case AdvPlayer covered it
         if (popup && popup.stageObj && popup.stageObj.parent) {
             app.stage.setChildIndex(popup.stageObj, app.stage.children.length - 1);
         }
@@ -190,9 +167,7 @@ async function startScenarioPlayer(eventType, eventId, language) {
             showEndOverlay(app, advPlayer);
         });
 
-        // Drive update loop
         app.ticker.add((delta) => advPlayer.update(delta));
-
         advPlayer.start(tracks);
     };
 
@@ -223,6 +198,7 @@ function showTitlePopup(app, meta) {
     return popup;
 }
 
+// Language utilities
 function normalizeScenarioLanguage(value) {
     const lang = String(value || '').toLowerCase();
     if (['cn', 'zh', 'zh-cn', 'zh_cn'].includes(lang)) return 'cn';
@@ -239,7 +215,7 @@ function applyScenarioLanguage(language) {
 function loadScenarioFonts(language) {
     if (language === 'cn') {
         return Promise.all([
-            new FontFaceObserver('Yuanti').load('中文测试真乃約束', FONT_TIMEOUT),
+            new FontFaceObserver('Yuanti').load('中文テスト真乃約束', FONT_TIMEOUT),
             new FontFaceObserver(USED_FONT_PRIMARY).load('あいう真乃約束', FONT_TIMEOUT),
             new FontFaceObserver(USED_FONT_SECONDARY).load('あいう真乃約束', FONT_TIMEOUT),
         ]);
@@ -269,6 +245,7 @@ function applyTrackLanguage(rawTracks, language) {
     });
 }
 
+// Scenario browser
 async function showScenarioEntryPage(initialType, initialLanguage) {
     const currentLanguage = normalizeScenarioLanguage(initialLanguage) || 'ja';
     document.body.classList.add('entry-mode');
@@ -276,26 +253,26 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
         <main class="entry-page">
             <section class="entry-hero">
                 <div>
-                    <div class="entry-kicker">ShinyScenarioViewer</div>
+                    <div class="entry-kicker">283 PRODUCTION</div>
                     <h1>Scenario Library</h1>
-                    <p>Choose a scenario JSON to play. The list is refreshed from the JSON folders every time this page opens.</p>
+                    <p>Select a scenario to play. The index is built live from all available JSON assets &mdash; just pick and go.</p>
                     <div class="entry-chips" aria-label="features">
-                        <span>Live JSON index</span>
-                        <span>Search by ID</span>
-                        <span>One-click play</span>
+                        <span>&#127775; Live Index</span>
+                        <span>&#128269; Search by ID</span>
+                        <span>&#9654;&#65039; One-Click Play</span>
                     </div>
                 </div>
                 <form class="manual-form">
-                    <label>Manual path</label>
+                    <label>&#128221; Quick Open</label>
                     <div class="manual-row">
-                        <input class="manual-input" value="${escapeHtml(initialType || 'produce_events')}/202100711" />
+                        <input class="manual-input" value="${escapeHtml(initialType || 'produce_events')}/" placeholder="eventType/eventId" />
                         <button type="submit">Open</button>
                     </div>
                 </form>
             </section>
             <section class="entry-panel">
                 <div class="entry-controls">
-                    <input class="scenario-search" type="search" placeholder="Search event id or category..." />
+                    <input class="scenario-search" type="search" placeholder="Search event ID or type…" />
                     <select class="category-select"></select>
                     <select class="language-select" aria-label="Language">
                         <option value="ja">日本語</option>
@@ -303,11 +280,11 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
                         <option value="en">English</option>
                     </select>
                     <button class="refresh-index" type="button">Refresh</button>
-                    <span class="entry-status">Scanning JSON folders...</span>
+                    <span class="entry-status">Scanning folders…</span>
                 </div>
                 <div class="scenario-grid"></div>
                 <div class="entry-pager">
-                    <button class="prev-page" disabled>Prev</button>
+                    <button class="prev-page" disabled>Previous</button>
                     <span class="page-status"></span>
                     <button class="next-page" disabled>Next</button>
                 </div>
@@ -339,11 +316,13 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
         ev.preventDefault();
         const value = document.querySelector('.manual-input').value.trim();
         const parts = value.replace(/\\/g, '/').replace(/^json\//, '').split('/');
-        if (parts.length < 2) {
-            status.textContent = 'Use a path like produce_events/202100711';
+        const manualEventType = parts[0] || '';
+        const manualEventId = (parts[1] || '').replace(/\.json$/i, '');
+        if (!manualEventType || !manualEventId) {
+            status.textContent = 'Use the eventType/eventId format.';
             return;
         }
-        openScenario(parts[0], parts[1].replace(/\.json$/i, ''), languageSelect.value);
+        openScenario(manualEventType, manualEventId, languageSelect.value);
     });
 
     let renderTimer = null;
@@ -384,14 +363,14 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
     async function loadIndex({ force }) {
         refreshIndex.disabled = true;
         try {
-            status.textContent = 'Scanning JSON folders...';
+            status.textContent = 'Scanning folders…';
             const items = await scanScenarioIndex((done, total) => {
-                status.textContent = `Scanning JSON folders... ${done}/${total}`;
+                status.textContent = `Scanning… ${done}/${total}`;
             });
-            applyScenarioIndex(items, 'fresh');
+            applyScenarioIndex(items, 'live index');
         } catch (err) {
             console.error('[entry] scan failed', err);
-            status.textContent = 'Failed to scan folders. Use manual path instead.';
+            status.textContent = 'Failed to scan. Use manual path instead.';
             categorySelect.innerHTML = `<option value="all">all</option>`;
             renderScenarioList();
         } finally {
@@ -405,11 +384,11 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
         state.all.forEach(item => counts.set(item.eventType, (counts.get(item.eventType) || 0) + 1));
         const categories = ['all', ...Array.from(counts.keys()).sort()];
         categorySelect.innerHTML = categories.map(category =>
-            `<option value="${escapeHtml(category)}">${escapeHtml(category)}${category === 'all' ? '' : ` (${counts.get(category) || 0})`}</option>`
+            `<option value="${escapeHtml(category)}">${escapeHtml(category)}${category === 'all' ? '' : ' (' + (counts.get(category) || 0) + ')'}</option>`
         ).join('');
         categorySelect.value = categories.includes(state.category) ? state.category : 'all';
         state.category = categorySelect.value;
-        status.textContent = `${state.all.length} scenario JSON files found (${sourceLabel})`;
+        status.textContent = `${state.all.length} scenarios found (${sourceLabel})`;
         renderScenarioList();
     }
 
@@ -430,11 +409,21 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
             ? pageItems.map((item, index) => {
                 const style = getScenarioCardStyle(item);
                 return `
-                <button class="scenario-card${style.charId ? ' has-idol-color' : ''}" style="--card-delay: ${Math.min(index, 18) * 24}ms; --idol-color: ${style.color}; --idol-color-soft: ${hexToRgba(style.color, 0.16)}; --idol-color-fill: ${hexToRgba(style.color, 0.28)}; --idol-text: ${style.textColor};" data-event-type="${escapeHtml(item.eventType)}" data-event-id="${escapeHtml(item.eventId)}" data-char-id="${escapeHtml(style.charId || '')}">
+                <button class="scenario-card${style.charId ? ' has-idol-color' : ''}"
+                    style="--card-delay: ${Math.min(index, 18) * 24}ms; --idol-color: ${style.color}; --idol-color-soft: ${hexToRgba(style.color, 0.16)}; --idol-color-fill: ${hexToRgba(style.color, 0.28)}; --idol-text: ${style.textColor};"
+                    data-event-type="${escapeHtml(item.eventType)}"
+                    data-event-id="${escapeHtml(item.eventId)}"
+                    data-char-id="${escapeHtml(style.charId || '')}">
                     ${style.charId ? `
                     <span class="scenario-thumb-frame" aria-hidden="true">
-                        <img class="scenario-thumb scenario-thumb-classic" src="./assets/thumbnail/classic/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="classic" data-char-id="${style.charId}" data-ext-index="0" loading="lazy" decoding="async" alt="" />
-                        <img class="scenario-thumb scenario-thumb-fes" src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}" data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0" loading="eager" decoding="async" alt="" />
+                        <img class="scenario-thumb scenario-thumb-classic"
+                            src="./assets/thumbnail/classic/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}"
+                            data-thumb-kind="classic" data-char-id="${style.charId}" data-ext-index="0"
+                            loading="lazy" decoding="async" alt="" />
+                        <img class="scenario-thumb scenario-thumb-fes"
+                            src="./assets/thumbnail/fes/${style.charId}.jpg?v=${THUMBNAIL_CACHE_BUSTER}"
+                            data-thumb-kind="fes" data-char-id="${style.charId}" data-ext-index="0"
+                            loading="eager" decoding="async" alt="" />
                     </span>` : ''}
                     <span class="scenario-category">${escapeHtml(item.eventType)}</span>
                     <strong>${escapeHtml(item.eventId)}</strong>
@@ -454,6 +443,7 @@ async function showScenarioEntryPage(initialType, initialLanguage) {
     }
 }
 
+// Thumbnail helpers
 function bindThumbnailFallback(card, thumb) {
     const markLoaded = () => {
         if (thumb.dataset.thumbKind === 'classic') card.classList.add('thumb-ready');
@@ -488,6 +478,7 @@ function withThumbnailCacheBuster(src) {
     return `${src}?v=${THUMBNAIL_CACHE_BUSTER}`;
 }
 
+// Card styling
 function getScenarioCardStyle(item) {
     const charId = getProduceEventCharId(item);
     const color = charId ? (IDOL_COLORS[charId] || DEFAULT_ENTRY_COLOR) : DEFAULT_ENTRY_COLOR;
@@ -527,6 +518,7 @@ function readableTextColor(hex) {
     return luminance > 0.68 ? '#33485a' : '#ffffff';
 }
 
+// Directory scanning
 async function scanScenarioIndex(onProgress) {
     const categories = await listDirectory(`${ASSET_PATH}/json/`, 'directories');
     const items = [];
@@ -603,23 +595,50 @@ function escapeHtml(value) {
     }[c]));
 }
 
+// Start and end overlays
 function buildTouchOverlay(app) {
     const overlay = new PIXI.Container();
     overlay.interactive = true;
     overlay.buttonMode  = true;
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(0x000000, 0.5);
+    bg.beginFill(0x08080f, 0.75);
     bg.drawRect(0, 0, 1136, 640);
     bg.endFill();
     overlay.addChild(bg);
+
+    const line = new PIXI.Graphics();
+    line.lineStyle(1, 0xff5e9c, 0.35);
+    line.moveTo(568 - 180, 320);
+    line.lineTo(568 - 60, 320);
+    line.lineStyle(1, 0xd4a84b, 0.25);
+    line.moveTo(568 + 60, 320);
+    line.lineTo(568 + 180, 320);
+    overlay.addChild(line);
+
+    const dot = new PIXI.Graphics();
+    dot.beginFill(0xff5e9c, 0.7);
+    dot.drawRoundedRect(-4, -4, 8, 8, 2);
+    dot.endFill();
+    dot.position.set(568, 320);
+    overlay.addChild(dot);
+
+    const title = new PIXI.Text('283 PRODUCTION', {
+        fontFamily: USED_FONT, fontSize: 16, fill: 0xff5e9c, align: 'center',
+        letterSpacing: 6,
+    });
+    title.anchor.set(0.5);
+    title.position.set(568, 284);
+    title.alpha = 0.8;
+    overlay.addChild(title);
 
     const label = new PIXI.Text('Tap to Start', {
         fontFamily: USED_FONT, fontSize: 36, fill: 0xffffff, align: 'center',
     });
     label.anchor.set(0.5);
-    label.position.set(568, 320);
+    label.position.set(568, 348);
     overlay.addChild(label);
+
     return overlay;
 }
 
@@ -648,7 +667,7 @@ function buildEndOverlay(app) {
     overlay.hitArea = new PIXI.Rectangle(0, 0, 1136, 640);
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(0x000000, 1);
+    bg.beginFill(0x0a0a16, 1);
     bg.drawRect(0, 0, 1136, 640);
     bg.endFill();
     bg.alpha = 0;
@@ -660,23 +679,38 @@ function buildEndOverlay(app) {
     overlay.addChild(content);
     overlay.content = content;
 
+    const line = new PIXI.Graphics();
+    line.lineStyle(1, 0xd4a84b, 0.4);
+    line.moveTo(568 - 140, 320);
+    line.lineTo(568 + 140, 320);
+    content.addChild(line);
+
+    const dot = new PIXI.Graphics();
+    dot.beginFill(0xff5e9c, 0.6);
+    dot.drawRoundedRect(-3, -3, 6, 6, 1.5);
+    dot.endFill();
+    dot.position.set(568, 320);
+    content.addChild(dot);
+
     const title = new PIXI.Text('End', {
         fontFamily: USED_FONT, fontSize: 52, fill: 0xffffff, align: 'center',
     });
     title.anchor.set(0.5);
-    title.position.set(568, 290);
+    title.position.set(568, 275);
     content.addChild(title);
 
     const label = new PIXI.Text('Scenario Finished', {
-        fontFamily: USED_FONT, fontSize: 24, fill: 0xd9f2ff, align: 'center',
+        fontFamily: USED_FONT, fontSize: 20, fill: 0xff5e9c, align: 'center',
+        letterSpacing: 2,
     });
     label.anchor.set(0.5);
-    label.position.set(568, 348);
+    label.position.set(568, 340);
     content.addChild(label);
 
     return overlay;
 }
 
+// Canvas resizing
 function resizeCanvas(app) {
     const w = document.documentElement.clientWidth;
     const h = document.documentElement.clientHeight;

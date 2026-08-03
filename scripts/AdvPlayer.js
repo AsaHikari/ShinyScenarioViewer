@@ -2,7 +2,7 @@
 // State machine, _onTap, _forward, _onEndText, _changeToWaiting, _playTrack
 // reproduce the original behavior. Driven by app.ticker via update(delta).
 class AdvPlayer extends PIXI.utils.EventEmitter {
-    constructor(app) {
+    constructor(app, opts = {}) {
         super();
         this._app    = app;
         this._loader = PIXI.Loader.shared;
@@ -15,7 +15,7 @@ class AdvPlayer extends PIXI.utils.EventEmitter {
         this._scenarioPlayer = new ScenarioPlayer();
         this._effectLayer    = new EffectLayer();
         this._movieLayer     = new MovieLayer();
-        this._soundController = new SoundController();
+        this._soundController = new SoundController(opts);
         this._selectList     = new SelectList(this._soundController);
         this._mainController = new MainController(this._soundController);
         this._scenarioLogLayer = new ScenarioLogLayer();

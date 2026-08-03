@@ -1,5 +1,8 @@
 # ShinyScenarioViewer
 
+[![Release: V1.1](https://img.shields.io/badge/release-V1.1-ff5e9c.svg)](https://github.com/AsaHikari/ShinyScenarioViewer/releases/tag/V1.1)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](./LICENSE)
+
 [中文](#中文) | [English](#english)
 
 ## 中文
@@ -16,15 +19,23 @@ ShinyScenarioViewer 是一个静态网页形式的 ADV 剧情播放器，基于 
 - 支持文本、说话人、文本框、选项、日志、语音、SE、BGM、背景、前景、still、movie、Spine 等资源类型。
 - 没有指定 `eventId` 时，会显示自制的可视化剧情入口页。
 - 支持在日志界面重放语音。
+- 支持 master、BGM、SE、voice 独立音量配置。
 - 支持为 `produce_events` 入口卡片配置可选缩略图。
 - **章节标题弹窗**：进入剧情时左上角弹出卡图+章节名
 - 内置 Debug 面板，方便开发调试（按 ` 键呼出/隐藏）。
+
+### V1.1 更新
+
+- 增加 master、BGM、SE、voice 独立音量配置与 `config.example.json`。
+- 默认清空章节标题映射，公开仓库不再附带具体章节数据。
+- 修正支援卡图标路径及中英文语言/字体说明。
+- 项目代码改用 GNU Affero General Public License v3.0 only。
 
 ### 章节标题弹窗
 
 进入剧情时，左上角会弹出章节标题卡片，显示卡图头像和章节名称。弹窗会自动滑入、停留约 2.5 秒后淡出消失。
 
-弹窗的元数据配置在 `scripts/ScenarioMetaIndex.js` 中，格式为：
+弹窗的元数据配置在 `scripts/ScenarioMetaIndex.js` 中。公开仓库默认使用空映射，不内置任何具体章节；下面仅为格式示例：
 
 ```js
 const SCENARIO_META = {
@@ -112,6 +123,8 @@ const SCENARIO_META = {
 | `main.css` | 播放器和入口页样式。 |
 | `scripts/` | 播放器核心模块。 |
 | `lib/` | 播放器运行所需的 JavaScript 库。 |
+| `config.example.json` | 可公开提交的音量配置示例。 |
+| `config.json` | 本地运行时音量配置，已被 git 忽略。 |
 | `assets/` | 本地运行资源目录，已被 git 忽略。 |
 
 ### assets 配置
@@ -140,6 +153,19 @@ assets/
 ```js
 const ASSET_PATH = './assets';
 const DOWNLOADS_PATH = './assets';
+```
+
+### 音量配置
+
+复制 `config.example.json` 为 `config.json`，再按需调整各类音量。`config.json` 仅供本地运行使用，已被 git 忽略。
+
+```json
+{
+  "masterVolume": 0.4,
+  "bgmVolume": 0.5,
+  "seVolume": 1.0,
+  "voiceVolume": 1.0
+}
 ```
 
 ### 剧情 JSON 入口
@@ -183,7 +209,7 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001
 当前约定：
 
 - `language=cn`：优先使用 `text_cn` / `select_cn`
-- `language=en`：预留给 `text_en` / `select_en`
+- `language=en`：优先使用 `text_en` / `select_en`
 - 不传 `language`：使用原始 `text` / `select`（日文）
 
 示例：
@@ -219,7 +245,8 @@ http://127.0.0.1:8000/?eventType=produce_events&eventId=100100001&language=en
 补充说明：
 
 - 如果指定了 `language=cn`，但剧情 JSON 中没有 `text_cn` 或 `select_cn`，会自动回退到原始 `text` / `select`。
-- `language=cn` 或者 `language=en` 下会默认切换到中文字体配置（当前项目内对应 `Yuanti`）。
+- `language=cn` 会优先使用 `Yuanti`，并以 `HummingStd-E-1` / `HummingStd-E-2` 作为后备字体。
+- `language=en` 保持默认的 `HummingStd-E-1` / `HummingStd-E-2` 字体配置，不会加载 `Yuanti`。
 - 对话日志界面的人物小头头像，是根据 `speaker` 来决定的，只有日文适配，非必要不建议翻译 `speaker`
 
 ### 可选缩略图
@@ -267,6 +294,10 @@ http://127.0.0.1:8000/
 
 如果你使用本项目播放并录制剧情内容，用于剧情汉化、视频投稿或相关展示，请在简介、说明或字幕组信息中标明使用了本项目。
 
+### 许可证
+
+本项目代码采用 [GNU Affero General Public License v3.0 only](./LICENSE)（SPDX：`AGPL-3.0-only`）。游戏资源和剧情数据不属于本许可证授权范围，也不会包含在本仓库中。
+
 ### Special thanks
 
 - yesterday17：没有他就不会有这个项目。
@@ -288,16 +319,24 @@ This repository only contains the player source code and asset path conventions.
 - Supports text, speakers, text frames, choices, log view, voice, SE, BGM, backgrounds, foregrounds, still images, movies, and Spine resources.
 - Shows a custom visual scenario entry page when no `eventId` is specified.
 - Supports voice replay from the scenario log screen.
+- Supports independent master, BGM, SE, and voice volume configuration.
 - Supports optional thumbnails for `produce_events` entry cards.
 - **Chapter title popup**: card icon + chapter name overlay
 - UI control panel defaults to collapsed state.
 - Built-in **Debug panel** for development (toggle with `` ` `` key).
 
+### V1.1 changes
+
+- Added independent master, BGM, SE, and voice volume settings with `config.example.json`.
+- Cleared the default chapter-title mapping so the public repository ships without chapter-specific data.
+- Fixed support-card icon paths and corrected the bilingual language/font documentation.
+- Relicensed the project code under GNU Affero General Public License v3.0 only.
+
 ### Chapter Title Popup
 
 When entering a scenario, a chapter title card pops up in the top-left corner showing the card icon and chapter name. The popup slides in, holds for ~2.5s, then fades out.
 
-Metadata is configured in `scripts/ScenarioMetaIndex.js`:
+Metadata is configured in `scripts/ScenarioMetaIndex.js`. The public repository ships with an empty mapping and no built-in chapter entries; the following is only a format example:
 
 ```js
 const SCENARIO_META = {
@@ -389,6 +428,8 @@ Global hotkeys (always available):
 | `main.css` | Player and entry page styles. |
 | `scripts/` | Core player modules. |
 | `lib/` | JavaScript libraries required by the player. |
+| `config.example.json` | Publicly shareable volume configuration example. |
+| `config.json` | Local runtime volume configuration; ignored by git. |
 | `assets/` | Local runtime assets. This directory is ignored by git. |
 
 ### Assets
@@ -417,6 +458,19 @@ Asset roots are configured in `scripts/Constants.js`:
 ```js
 const ASSET_PATH = './assets';
 const DOWNLOADS_PATH = './assets';
+```
+
+### Volume configuration
+
+Copy `config.example.json` to `config.json`, then adjust each volume as needed. `config.json` is for local runtime use only and is ignored by git.
+
+```json
+{
+  "masterVolume": 0.4,
+  "bgmVolume": 0.5,
+  "seVolume": 1.0,
+  "voiceVolume": 1.0
+}
 ```
 
 ### Scenario JSON entry page
@@ -456,7 +510,7 @@ The player supports switching display language through a URL query parameter.
 Current behavior:
 
 - `language=cn`: prefers `text_cn` / `select_cn`
-- `language=en`: reserved for `text_en` / `select_en`
+- `language=en`: prefers `text_en` / `select_en`
 - no `language` parameter: uses the original `text` / `select` fields (Japanese)
 
 Examples:
@@ -491,7 +545,8 @@ You can also switch language in the entry page:
 Notes:
 
 - If `language=en` is provided but the scenario JSON does not contain `text_en` or `select_en`, the player automatically falls back to the original `text` / `select`.
-- Under `language=cn` or `language=en`, the player also switches to the Preset font configuration (`Yuanti` in the current project setup).
+- Under `language=cn`, the player prefers `Yuanti` and falls back to `HummingStd-E-1` / `HummingStd-E-2`.
+- Under `language=en`, the player keeps the default `HummingStd-E-1` / `HummingStd-E-2` font configuration and does not load `Yuanti`.
 - The Character circle icon shown in log window is defined and decided by the `speaker`. So I recommend not to change it if not necessary.
 
 ### Optional thumbnails
@@ -537,6 +592,10 @@ http://127.0.0.1:8000/
 ### Scenario translation and recording
 
 If you use this project to play and record scenarios for translation, video uploads, or related presentations, please mention that this project was used in the description, credits, or translation notes.
+
+### License
+
+The project code is licensed under the [GNU Affero General Public License v3.0 only](./LICENSE) (SPDX: `AGPL-3.0-only`). Game assets and scenario data are outside the scope of this license and are not included in this repository.
 
 ### Special thanks
 
