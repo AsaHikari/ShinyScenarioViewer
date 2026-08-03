@@ -1,7 +1,6 @@
 'use strict';
 
-// Unified local asset root. ScenarioViewer is served from C:\ShinyM@ster,
-// so playback resources are resolved from the sibling assets directory.
+// Public runtime resources are resolved from the repository-local assets directory.
 const ASSET_PATH      = './assets';
 const DOWNLOADS_PATH  = './assets';
 
