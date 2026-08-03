@@ -9,6 +9,9 @@ class SoundController {
         this._currentVoice  = null;
         this._currentVoiceRes = null;
         this._currentLogVoice = null;
+        this._bgmVolume   = opts.bgmVolume   ?? 0.5;
+        this._seVolume    = opts.seVolume    ?? 1.0;
+        this._voiceVolume = opts.voiceVolume ?? 1.0;
 
         if (PIXI.sound) PIXI.sound.volumeAll = opts.masterVolume ?? 0.4;
     }
@@ -104,6 +107,7 @@ class SoundController {
         if (!res || !res.sound) return null;
         try {
             this._currentLogVoice = res.sound.play({ loop: false });
+            if (this._currentLogVoice) this._setVolume(this._currentLogVoice, this._getVolume(this._currentLogVoice, 1) * this._voiceVolume);
             return this._currentLogVoice;
         } catch(_) { return null; }
     }
@@ -143,7 +147,7 @@ class SoundController {
             const inst = res.sound.play({ loop: true, singleInstance: true });
             this._currentBgm = inst;
             this._currentBgmUrl = url;
-            const targetVolume = this._getVolume(inst, this._getVolume(res.sound, 0.5));
+            const targetVolume = this._getVolume(inst, this._getVolume(res.sound, 0.5)) * this._bgmVolume;
             if (crossFade) {
                 this._setVolume(inst, 0);
                 this._fadeVolume(inst, targetVolume, fadeTime);
@@ -157,7 +161,10 @@ class SoundController {
         this.removeSe();
         const res = this._loader.resources[url];
         if (!res || !res.sound) return;
-        try { this._currentSe = res.sound.play({ loop: false }); } catch(_) {}
+        try {
+            this._currentSe = res.sound.play({ loop: false });
+            if (this._currentSe) this._setVolume(this._currentSe, this._getVolume(this._currentSe, 1) * this._seVolume);
+        } catch(_) {}
     }
 
     // Returns the playing media instance, augmented with .duration (seconds).
@@ -169,6 +176,7 @@ class SoundController {
             const inst = res.sound.play({ loop });
             this._currentVoice    = inst;
             this._currentVoiceRes = res;
+            if (inst) this._setVolume(inst, this._getVolume(inst, 1) * this._voiceVolume);
             // Expose .duration so AdvPlayer can compute lipAnimDuration
             if (inst && res.sound.duration) {
                 inst.duration = res.sound.duration;
